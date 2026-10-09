@@ -509,7 +509,8 @@ fn clone(api: &Api, slug: &str) -> Result<ExitCode> {
   if !c.started {
     bail!("todavía no empezaste {slug}. Empezalo desde la web: {}", api.web_url(&format!("/app/c/{slug}")));
   }
-  let ok = Command::new("git").args(["clone", &c.clone_url]).status()?.success();
+  // El provider "generic" evita que Git Credential Manager sondee el host en cada pull (2 warnings y varios segundos).
+  let ok = Command::new("git").args(["clone", "-c", "credential.provider=generic", &c.clone_url]).status()?.success();
   if ok {
     println!("\n{} cd {slug} && byox", "Listo:".green().bold());
   }

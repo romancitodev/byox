@@ -38,7 +38,7 @@ pub fn new(api: &Api, slug: &str, lang: &str, title: Option<&str>, clone: bool) 
     t.image.bright_black()
   );
   if clone {
-    let ok = Command::new("git").args(["clone", "-q", &c.clone_url]).status()?.success();
+    let ok = Command::new("git").args(["clone", "-q", "-c", "credential.provider=generic", &c.clone_url]).status()?.success();
     if !ok {
       bail!("no pude clonarlo. Probá a mano: git clone {}", c.clone_url);
     }
