@@ -43,5 +43,11 @@
 .tok-reveal .clone code, .inv-out .clone code { overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; text-overflow: clip; font-size: 12.5px; line-height: 1.6; }
 .tok-reveal .clone .icon-btn, .inv-out .clone .icon-btn { flex: none; }
 .tok-cmd[hidden], .tok-reveal [hidden] { display: none; }
-.pw-form { display: grid; gap: 12px; max-width: 360px; }
-@media (max-width: 560px) { .tok-new { flex-direction: column; } .tok-list li { flex-wrap: wrap; } }
+/* Contraseña: los dos campos lado a lado, ocupando el ancho de la tarjeta como el resto de las secciones */
+.pw-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; align-items: start; }
+.pw-form .auth-err { grid-column: 1 / -1; }
+.pw-form .btn { grid-column: 1 / -1; justify-self: start; }
+.pw-form small { line-height: 1.4; }
+/* Los selectores segmentados no se estiran: miden lo que sus botones */
+.acct .seg { justify-self: start; width: fit-content; }
+@media (max-width: 560px) { .tok-new { flex-direction: column; } .tok-list li { flex-wrap: wrap; } .pw-form { grid-template-columns: minmax(0, 1fr); } }
