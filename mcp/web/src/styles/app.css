@@ -1099,3 +1099,7 @@ details.optional, .hint, .verify, .page-link, .cover-bar, .map, .stage-map, .dif
 .cmd-tabs { gap: 16px; padding: 8px 14px 0; border-bottom: 1px solid rgba(255, 255, 255, .07); }
 .cmd-tabs button { padding: 4px 0 7px; margin-bottom: -1px; border-radius: 0; border-bottom: 2px solid transparent; }
 .cmd-tabs button.on { background: none; border-bottom-color: var(--ember); }
+
+/* La barra lateral se anima (motion.js): recorta lo que sobra mientras cambia de ancho y no deja que las etiquetas salten de línea */
+.side { overflow: clip; overflow-clip-margin: 4px; }
+.side .hide-slim { white-space: nowrap; }

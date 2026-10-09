@@ -403,8 +403,8 @@ async function home() {
     $app.querySelectorAll(".mine [data-g]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.g === S.homeGroup)));
     paint();
   };
-  $app.querySelectorAll(".mine [data-f]").forEach((b) => b.addEventListener("click", () => { S.homeFilter = b.dataset.f; draw(); }));
-  $app.querySelectorAll(".mine [data-g]").forEach((b) => b.addEventListener("click", () => { S.homeGroup = b.dataset.g; draw(); }));
+  $app.querySelectorAll(".mine [data-f]").forEach((b) => b.addEventListener("click", () => { S.homeFilter = b.dataset.f; draw(); motion.list($app.querySelector(".mine-body")); }));
+  $app.querySelectorAll(".mine [data-g]").forEach((b) => b.addEventListener("click", () => { S.homeGroup = b.dataset.g; draw(); motion.list($app.querySelector(".mine-body")); }));
   $app.querySelector(".mine-body")?.addEventListener("click", (e) => {
     const m = e.target.closest("[data-more]");
     if (!m) return;
@@ -1476,6 +1476,7 @@ function copyCode(btn) {
   btn.classList.add("done");
   btn.innerHTML = `${ic("check")}<span>${t("Copiado")}</span>`;
   paint();
+  motion.pop(btn);
   setTimeout(() => {
     btn.classList.remove("done");
     btn.innerHTML = `${ic("copy")}<span>${t("Copiar")}</span>`;
@@ -1924,7 +1925,8 @@ function toggleSlim() {
   S.slim = !document.querySelector(".shell")?.classList.contains("slim");
   S.slimAuto = false;
   try { localStorage.setItem("byox-slim", S.slim ? "1" : "0"); } catch {}
-  document.querySelector(".shell")?.classList.toggle("slim", S.slim);
+  const shell = document.querySelector(".shell");
+  if (shell) motion.slim(shell, S.slim, () => shell.classList.toggle("slim", S.slim));
 }
 
 // ---------- cursos propios: compartir, importar y escribir a mano ----------
@@ -2494,8 +2496,14 @@ document.addEventListener("click", (e) => {
   const fold = e.target.closest("[data-fold]");
   if (fold && ctx) {
     const id = fold.dataset.fold;
-    ctx.collapsed.has(id) ? ctx.collapsed.delete(id) : ctx.collapsed.add(id);
-    renderTrack();
+    const folds = !ctx.collapsed.has(id);
+    const commit = () => {
+      folds ? ctx.collapsed.add(id) : ctx.collapsed.delete(id);
+      renderTrack();
+    };
+    // el tramo de la etapa abierta no se pliega: ahí no hay nada que animar
+    if (ctx.course.issues.find((i) => i.n === ctx.n)?.milestone === id) commit();
+    else motion.fold(fold, id, folds, commit);
   }
 });
 

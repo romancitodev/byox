@@ -86,6 +86,77 @@ export function swap() {
   stagger(parts, { y: 6, each: 0.03, duration: 0.28 });
 }
 
+/** Plegar o desplegar un tramo de la lista de etapas. `commit` cambia el estado y repinta la lista. */
+let folding = false;
+export function fold(row, id, folds, commit) {
+  const group = (li) => {
+    const out = [];
+    for (let n = li.nextElementSibling; n && !n.querySelector(":scope > .ms-row"); n = n.nextElementSibling) out.push(n);
+    return out;
+  };
+  const items = group(row.closest("li"));
+  if (!on() || folding || (folds && !items.length)) return commit();
+  const chevron = (r) => r.querySelector(":scope > svg");
+  folding = true;
+  const done = () => { folding = false; };
+  if (folds) {
+    gsap.to(chevron(row), { rotation: 0, duration: 0.2 });
+    gsap.to(items, { height: 0, opacity: 0, overflow: "hidden", duration: 0.22, ease: "power2.inOut", stagger: { amount: 0.1, from: "end" }, onComplete: () => { commit(); done(); } });
+  } else {
+    commit();
+    const r = document.querySelector(`[data-fold="${CSS.escape(id)}"]`);
+    if (!r) return done();
+    gsap.fromTo(chevron(r), { rotation: 0 }, { rotation: 90, duration: 0.22, clearProps: "transform" });
+    gsap.from(group(r.closest("li")), { height: 0, opacity: 0, overflow: "hidden", duration: 0.3, stagger: { amount: 0.18 }, clearProps: "height,opacity,overflow", onComplete: done });
+  }
+}
+
+/** Barra lateral: el ancho se interpola y las etiquetas se desvanecen, en lugar de aparecer de golpe. */
+export function slim(shell, willSlim, apply) {
+  if (!on() || matchMedia("(max-width: 760px)").matches) return apply();
+  const labels = [...shell.querySelectorAll(".side .hide-slim")];
+  const cols = (w) => `${w}px minmax(0, 1fr)`;
+  gsap.killTweensOf([shell, ...labels]);
+  if (willSlim) {
+    gsap.to(labels, { opacity: 0, duration: 0.12 });
+    gsap.fromTo(shell, { gridTemplateColumns: cols(236) }, { gridTemplateColumns: cols(52), duration: 0.26, ease: "power3.inOut", onComplete: () => { apply(); gsap.set(labels, { clearProps: "opacity" }); gsap.set(shell, { clearProps: "gridTemplateColumns" }); } });
+  } else {
+    apply();
+    gsap.set(shell, { gridTemplateColumns: cols(52) });
+    gsap.to(shell, { gridTemplateColumns: cols(236), duration: 0.28, ease: "power3.inOut", clearProps: "gridTemplateColumns" });
+    gsap.fromTo(shell.querySelectorAll(".side .hide-slim"), { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.25, delay: 0.1, stagger: 0.012, clearProps: "opacity,transform" });
+  }
+}
+
+/** Lista que se repinta por un filtro: las filas entran de nuevo, rápido. */
+export function list(host) {
+  if (!on() || !host) return;
+  stagger(host.querySelectorAll(".hm-row, .ms-group, .empty"), { y: 6, each: 0.02, duration: 0.26, lazy: false });
+}
+
+/** Confirmación táctil (copiar, guardar…). */
+export function pop(el) {
+  if (el && on()) gsap.fromTo(el, { scale: 0.92 }, { scale: 1, duration: 0.4, ease: "back.out(3)", clearProps: "transform" });
+}
+
+/** <details>: el contenido se despliega y se recoge con altura, no de golpe. */
+function details() {
+  const body = (d) => [...d.children].filter((c) => c.tagName !== "SUMMARY");
+  document.addEventListener("toggle", (e) => {
+    const d = e.target;
+    if (!(d instanceof HTMLDetailsElement) || !d.open || !on()) return;
+    gsap.from(body(d), { height: 0, opacity: 0, overflow: "hidden", duration: 0.28, clearProps: "height,opacity,overflow" });
+  }, true);
+  document.addEventListener("click", (e) => {
+    const sum = e.target.closest?.("details > summary");
+    const d = sum?.parentElement;
+    if (!d?.open || !on() || d._closing) return;
+    e.preventDefault();
+    d._closing = true;
+    gsap.to(body(d), { height: 0, opacity: 0, overflow: "hidden", duration: 0.2, ease: "power2.inOut", onComplete: () => { d.open = false; d._closing = false; gsap.set(body(d), { clearProps: "height,opacity,overflow" }); } });
+  });
+}
+
 /** Diálogos, paleta y avisos: entran con un poco de cuerpo. */
 function watch() {
   new MutationObserver((list) => {
@@ -118,3 +189,4 @@ function press() {
 
 watch();
 press();
+details();
