@@ -1,5 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import type { Db, Table } from "./store.js";
 
 /** Lo que pasó con una etapa en el último run que la probó. */
 export interface StageResult {
@@ -21,33 +20,34 @@ export interface Diagnosis {
   highlight: number[];
 }
 
-const DIR = process.env.BYOX_DATA ?? "/data";
-
 /** Resultados por repo: guarda el último de cada etapa, así el de #3 no se pierde si el push siguiente ya no lo prueba. */
 export class Results {
-  private cache = new Map<string, Record<string, StageResult>>();
+  private table: Table<Record<string, StageResult>>;
+  /** Un record() a la vez por repo: es leer, mezclar y volver a escribir. */
+  private chain = new Map<string, Promise<unknown>>();
 
-  private file(repo: string) {
-    return join(DIR, "results", `${repo.replace(/[^\w.-]+/g, "__")}.json`);
+  constructor(db: Db) {
+    this.table = db.table("results", { dir: "results", sep: "__" });
   }
 
   async get(repo: string): Promise<Record<string, StageResult>> {
-    if (!this.cache.has(repo)) {
-      const data = await readFile(this.file(repo), "utf8").then(JSON.parse).catch(() => ({}));
-      this.cache.set(repo, data);
-    }
-    return this.cache.get(repo)!;
+    return (await this.table.get(repo)) ?? {};
   }
 
-  async record(body: { repo: string; sha: string; run: string; at: string; results: { id: string; ok: boolean; log: string }[] }) {
-    const current = await this.get(body.repo);
-    for (const r of body.results) {
-      current[r.id] = { ok: r.ok, log: r.log, sha: body.sha, run: body.run, at: body.at };
-    }
-    // Si el setup pasó, su error viejo ya no aplica.
-    if (!body.results.some((r) => r.id === "setup")) delete current.setup;
-    await mkdir(join(DIR, "results"), { recursive: true });
-    await writeFile(this.file(body.repo), JSON.stringify(current));
+  record(body: { repo: string; sha: string; run: string; at: string; results: { id: string; ok: boolean; log: string }[] }) {
+    const run = async () => {
+      const current = await this.get(body.repo);
+      for (const r of body.results) {
+        current[r.id] = { ok: r.ok, log: r.log, sha: body.sha, run: body.run, at: body.at };
+      }
+      // Si el setup pasó, su error viejo ya no aplica.
+      if (!body.results.some((r) => r.id === "setup")) delete current.setup;
+      await this.table.set(body.repo, current);
+    };
+    const next = (this.chain.get(body.repo) ?? Promise.resolve()).then(run, run);
+    this.chain.set(body.repo, next);
+    next.finally(() => this.chain.get(body.repo) === next && this.chain.delete(body.repo)).catch(() => {});
+    return next;
   }
 }
 

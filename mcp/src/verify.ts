@@ -1,11 +1,13 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { loadSource, under, VERIFY_CONTEXT, type Source } from "./course.js";
+import { pickDocker } from "./docker.js";
 import type { Forgejo } from "./forgejo.js";
 import { renderRunSh } from "./instance.js";
+import type { Db, Table } from "./store.js";
 
 const run = promisify(execFile);
 const TIMEOUT_MS = 20 * 60_000;
@@ -44,8 +46,10 @@ export async function verifyCourse(
   const skeleton = under(src, "files");
   const solution = new Map([...skeleton, ...under(src, "solution")]);
 
-  await run("docker", ["pull", "-q", course.image], { timeout: TIMEOUT_MS }).catch(() => {});
-  const [skel, sol] = await Promise.all([execute(src, skeleton), execute(src, solution)]);
+  // Un solo daemon para toda la verificación: el pull y las dos corridas tienen que caer en la misma máquina.
+  const env = await pickDocker();
+  await run("docker", ["pull", "-q", course.image], { timeout: TIMEOUT_MS, env }).catch(() => {});
+  const [skel, sol] = await Promise.all([execute(src, skeleton, env), execute(src, solution, env)]);
 
   const out: string[] = [];
   const bad: string[] = [];
@@ -93,7 +97,6 @@ export interface Verification {
   report?: string;
 }
 
-const DIR = join(process.env.BYOX_DATA ?? "/data", "verify");
 const DEBOUNCE_MS = 15_000;
 
 /**
@@ -107,23 +110,22 @@ export class Verifier {
   /** Commits que hizo el MCP: los verifica quien los escribió (verify_course), no el webhook. */
   private own = new Set<string>();
 
-  constructor(private fj: Forgejo, private org: string) {}
+  private table: Table<Verification>;
 
-  private file(slug: string) {
-    return join(DIR, `${slug.replace(/[^\w.-]+/g, "_")}.json`);
+  constructor(private fj: Forgejo, private org: string, db: Db) {
+    this.table = db.table("verify", { dir: "verify", sep: "_" });
   }
 
   async get(slug: string): Promise<Verification | null> {
     if (!this.cache.has(slug)) {
-      this.cache.set(slug, await readFile(this.file(slug), "utf8").then(JSON.parse).catch(() => null));
+      this.cache.set(slug, (await this.table.get(slug)) ?? null);
     }
     return this.cache.get(slug) ?? null;
   }
 
   private async save(v: Verification) {
     this.cache.set(v.slug, v);
-    await mkdir(DIR, { recursive: true });
-    await writeFile(this.file(v.slug), JSON.stringify(v));
+    await this.table.set(v.slug, v);
   }
 
   /** Un commit que escribió el MCP: el webhook no lo verifica solo. */
@@ -217,21 +219,21 @@ export class Verifier {
   }
 }
 
-async function execute(src: Source, files: Map<string, Buffer>): Promise<Outcome> {
+async function execute(src: Source, files: Map<string, Buffer>, env: NodeJS.ProcessEnv): Promise<Outcome> {
   const dir = await mkdtemp(join(tmpdir(), "byox-"));
   const name = `byox-verify-${dir.slice(-6).toLowerCase()}`;
   try {
     for (const [p, c] of files) await put(join(dir, p), c);
     await put(join(dir, ".course/run.sh"), renderRunSh(src.course!));
     await run("docker", // 2>&1 adentro del contenedor: si no, docker separa stderr y se pierde a qué issue pertenece cada línea.
-      ["create", "--name", name, "-w", "/work", "--entrypoint", "sh", src.course!.image, "-c", "sh .course/run.sh 2>&1"]);
-    await run("docker", ["cp", `${dir}/.`, `${name}:/work`]);
-    const raw = await run("docker", ["start", "-a", name], { timeout: TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024 })
+      ["create", "--name", name, "-w", "/work", "--entrypoint", "sh", src.course!.image, "-c", "sh .course/run.sh 2>&1"], { env });
+    await run("docker", ["cp", `${dir}/.`, `${name}:/work`], { env });
+    const raw = await run("docker", ["start", "-a", name], { timeout: TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024, env })
       .then((r) => r.stdout + r.stderr)
       .catch((e) => `${e.stdout ?? ""}${e.stderr ?? ""}${e.killed ? "\n(timeout)" : ""}`);
     return parse(raw);
   } finally {
-    await run("docker", ["rm", "-f", name]).catch(() => {});
+    await run("docker", ["rm", "-f", name], { env }).catch(() => {});
     await rm(dir, { recursive: true, force: true });
   }
 }

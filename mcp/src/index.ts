@@ -10,6 +10,8 @@ import { isVerified, loadSource, VERIFY_CONTEXT, type Source } from "./course.js
 import { Forgejo } from "./forgejo.js";
 import { courseStatus, startCourse, upgradeCourse } from "./instance.js";
 import { Results } from "./results.js";
+import { openDb } from "./store.js";
+import { Usage } from "./usage.js";
 import { refreshProfile } from "./profile.js";
 import { Verifier } from "./verify.js";
 import { registerTutor } from "./tutor.js";
@@ -37,14 +39,16 @@ const signup = env("BYOX_SIGNUP", "closed") as SignupMode;
 // Quién puede escribir y verificar cursos (corren código en Docker): sólo administradores, o todos.
 const authorsAll = env("BYOX_AUTHORS", "admin") === "all";
 const fj = new Forgejo(env("FORGEJO_URL"), env("BYOX_TOKEN"));
+// Con DATABASE_URL el estado vive en Postgres; si no, en archivos JSON dentro de BYOX_DATA.
+const db = await openDb(dataDir, process.env.DATABASE_URL || undefined);
+console.log(`estado en ${db.kind === "postgres" ? "Postgres" : `archivos (${dataDir})`}`);
 const auth = new Auth(fj, {
-  dir: dataDir,
   bot: cfg.bot,
   org: cfg.org,
   signup,
   trustProxy: env("BYOX_TRUST_PROXY", "") === "1",
   secureCookies: env("BYOX_SECURE_COOKIES", "") === "1",
-});
+}, db);
 await auth.init();
 const canAuthor = (p: Principal) => p.admin || authorsAll;
 const guide = readFileSync(new URL("../assets/guide.md", import.meta.url), "utf8");
@@ -256,6 +260,7 @@ function buildServer(me: Principal): McpServer {
         );
       }
       const out = await startCourse(fj, mine, src, reset);
+      usage.course(me.user, slug).catch((e) => console.error("uso:", e.message));
       scheduleProfile(me.user);
       return text(out);
     },
@@ -306,8 +311,8 @@ const refreshAll = (delay = 0) =>
 setInterval(() => refreshAll(), 30 * 60_000);
 setTimeout(() => refreshAll(), 10_000);
 
-const results = new Results();
-const verifier = new Verifier(fj, cfg.org);
+const results = new Results(db);
+const verifier = new Verifier(fj, cfg.org, db);
 const author = authoring(fj, cfg, verifier);
 // Los push a los repos fuente (cursos escritos a mano) se verifican solos.
 const hookUrl = env("BYOX_HOOK_URL", "http://mcp:3333/hooks/source");
@@ -317,8 +322,9 @@ const hook = (tries = 0) =>
     if (tries < 10) setTimeout(() => hook(tries + 1), 30_000);
   });
 hook();
-const clients = new Clients();
-const web_ = web(fj, cfg, results, clients, auth, (user) => scheduleProfile(user));
+const clients = new Clients(db);
+const usage = new Usage(db);
+const web_ = web(fj, cfg, results, clients, auth, (user) => scheduleProfile(user), usage);
 const handleWeb = web_.handle;
 
 createServer(async (req, res) => {
@@ -381,6 +387,8 @@ createServer(async (req, res) => {
         try {
           body = JSON.parse(raw);
           clients.seen(who.user, body);
+          const calls = (Array.isArray(body) ? body : [body]).filter((m) => m?.method === "tools/call").length;
+          if (calls) usage.call(who.user, calls).catch((e) => console.error("uso:", e.message));
         } catch {
           body = undefined;
         }
@@ -401,6 +409,11 @@ createServer(async (req, res) => {
       if (req.method === "POST" && (path.startsWith("/api/author") || path.startsWith("/api/import")) && !canAuthor(who)) {
         res.writeHead(403, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Tu cuenta no puede crear ni importar cursos en esta instancia." }));
+        return;
+      }
+      if (path === "/api/usage" && req.method === "GET") {
+        res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(JSON.stringify(await usage.summary(who.user)));
         return;
       }
       if (await author.handle(req, res, who.user)) return;

@@ -5,15 +5,18 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
+    "test": "tsc && node --test \"test/*.test.mjs\"",
     "start": "node dist/index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
+    "pg": "^8.23.1",
     "yaml": "^2.8.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.23.1",
     "typescript": "^5.9.0"
   }
 }

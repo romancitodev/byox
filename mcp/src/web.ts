@@ -9,6 +9,7 @@ import type { Forgejo } from "./forgejo.js";
 import { startCourse, upgradeCourse } from "./instance.js";
 import { computeStats, type ProfileConfig, type Stats } from "./profile.js";
 import type { Clients } from "./clients.js";
+import type { Usage } from "./usage.js";
 import { diagnose, type Results } from "./results.js";
 
 /** La interfaz web: una SPA estática (el build de Astro en web/dist) y una API chica arriba de Forgejo. */
@@ -57,7 +58,7 @@ const json = (res: ServerResponse, data: unknown, status = 200) =>
 /** Un segmento «..» sube de carpeta; un nombre que solo lo contiene (como `_..abc.css`) es válido. */
 const hasDotDot = (p: string) => p.split(/[\/]/).some((seg) => seg === ".." || /^%2e%2e$/i.test(seg));
 
-export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients: Clients, auth: Auth, onProgress: (user: string) => void) {
+export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients: Clients, auth: Auth, onProgress: (user: string) => void, usage: Usage) {
   const scopes = new Map<string, ReturnType<typeof scope>>();
   const forUser = (user: string) => {
     let s = scopes.get(user);
@@ -425,6 +426,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
           return json(res, { error: "El curso no está verificado. Ejecuta `byox check` o pide a tu asistente que ejecute verify_course." }, 400), true;
         }
         await startCourse(fj, w.cfg, src, false);
+        usage.course(who.user, r[1]).catch((e) => console.error("uso:", e.message));
         onProgress(who.user);
         return json(res, { ok: true }), true;
       }

@@ -1,5 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import type { Db, Table } from "./store.js";
 
 /**
  * Quién usó el MCP por última vez. El servidor no tiene sesiones (un transporte por request),
@@ -13,27 +12,34 @@ interface Seen {
   lastTool?: { name: string; at: string };
 }
 
-const DIR = process.env.BYOX_DATA ?? "/data";
-const FILE = join(DIR, "mcp-client.json");
 /** Sin requests en este rato, el cliente ya no cuenta como activo. */
 const ACTIVE_MS = 15 * 60_000;
 
 export class Clients {
   /** Por usuario: cada persona conecta su propio asistente. */
-  private data: Record<string, Seen> = {};
-  private loaded = readFile(FILE, "utf8")
-    .then((t) => {
-      const d = JSON.parse(t);
-      // El formato viejo era de un solo usuario: se descarta.
-      this.data = d && typeof d === "object" && !("lastSeen" in d) ? d : {};
-    })
-    .catch(() => {});
+  private table: Table<Seen>;
+  private cache = new Map<string, Seen>();
+  private dirty = new Set<string>();
   private saving: NodeJS.Timeout | undefined;
+
+  constructor(db: Db) {
+    this.table = db.table("mcp-client");
+  }
+
+  private async load(user: string): Promise<Seen> {
+    let mine = this.cache.get(user);
+    if (!mine) {
+      const stored = await this.table.get(user);
+      // Puede haber llegado otro request mientras se leía: gana el que ya estaba en la caché.
+      mine = this.cache.get(user) ?? (stored && typeof stored === "object" ? stored : {});
+      this.cache.set(user, mine);
+    }
+    return mine;
+  }
 
   /** Registra los mensajes JSON-RPC de un POST a /mcp (uno o un lote). */
   async seen(user: string, body: unknown) {
-    await this.loaded;
-    const mine = (this.data[user] ??= {});
+    const mine = await this.load(user);
     const now = new Date().toISOString();
     for (const m of Array.isArray(body) ? body : [body]) {
       if (!m || typeof m !== "object") continue;
@@ -46,17 +52,17 @@ export class Clients {
     mine.firstSeen ??= now;
     mine.lastSeen = now;
     // Varias requests seguidas se guardan una sola vez.
+    this.dirty.add(user);
     clearTimeout(this.saving);
     this.saving = setTimeout(() => {
-      mkdir(DIR, { recursive: true })
-        .then(() => writeFile(FILE, JSON.stringify(this.data)))
-        .catch((e) => console.error("mcp-client:", e.message));
+      const users = [...this.dirty];
+      this.dirty.clear();
+      Promise.all(users.map((u) => this.table.set(u, this.cache.get(u)!))).catch((e) => console.error("mcp-client:", e.message));
     }, 2000);
   }
 
   async status(user: string) {
-    await this.loaded;
-    const mine = this.data[user] ?? {};
+    const mine = await this.load(user);
     const last = mine.lastSeen ? Date.parse(mine.lastSeen) : 0;
     const state = !last ? "never" : Date.now() - last < ACTIVE_MS ? "active" : "idle";
     return { state, ...mine };

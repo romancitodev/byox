@@ -1,8 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { join } from "node:path";
 import type { Forgejo } from "./forgejo.js";
+import type { Db, Table } from "./store.js";
 
 /**
  * Cuentas reales. La identidad es un usuario de Forgejo: byox no guarda contraseñas, las valida contra
@@ -18,7 +17,6 @@ export interface Principal {
 }
 
 export interface AuthConfig {
-  dir: string;
   bot: string;
   org: string;
   signup: SignupMode;
@@ -86,24 +84,6 @@ export function localize(msg: string, req: IncomingMessage): string {
   return EN[msg] ?? msg;
 }
 
-/** Un JSON en disco (0600) con escritura diferida. */
-class Store<T> {
-  data: Record<string, T> = {};
-  private timer: NodeJS.Timeout | undefined;
-  constructor(private file: string) {}
-  async load() {
-    this.data = await readFile(this.file, "utf8").then(JSON.parse).catch(() => ({}));
-  }
-  save() {
-    clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      mkdir(join(this.file, ".."), { recursive: true })
-        .then(() => writeFile(this.file, JSON.stringify(this.data), { mode: 0o600 }))
-        .catch((e) => console.error("auth:", e.message));
-    }, 500);
-  }
-}
-
 interface Session { u: string; exp: number }
 interface Pat { u: string; name: string; created: string; last?: string }
 interface Invite { by: string; created: string; note?: string }
@@ -130,32 +110,32 @@ class Limiter {
 }
 
 export class Auth {
-  private sessions: Store<Session>;
-  private tokens: Store<Pat>;
-  private invites: Store<Invite>;
+  private sessions: Table<Session>;
+  private tokens: Table<Pat>;
+  private invites: Table<Invite>;
   private secret = "";
   private seen = new Map<string, { at: number; admin: boolean; ok: boolean }>();
   private logins = new Limiter(8, 10 * 60_000);
   private signups = new Limiter(10, 3_600_000);
 
-  constructor(private fj: Forgejo, private cfg: AuthConfig) {
-    this.sessions = new Store(join(cfg.dir, "sessions.json"));
-    this.tokens = new Store(join(cfg.dir, "tokens.json"));
-    this.invites = new Store(join(cfg.dir, "invites.json"));
+  constructor(private fj: Forgejo, private cfg: AuthConfig, db: Db) {
+    this.db = db;
+    this.sessions = db.table("sessions");
+    this.tokens = db.table("tokens");
+    this.invites = db.table("invites");
   }
+  private db: Db;
 
   async init() {
-    await Promise.all([this.sessions.load(), this.tokens.load(), this.invites.load()]);
-    const file = join(this.cfg.dir, "secret");
-    this.secret = process.env.BYOX_SECRET || (await readFile(file, "utf8").catch(() => "")).trim();
-    if (!this.secret) {
-      this.secret = randomBytes(32).toString("hex");
-      await mkdir(this.cfg.dir, { recursive: true });
-      await writeFile(file, this.secret, { mode: 0o600 });
-    }
+    this.secret = process.env.BYOX_SECRET || (await this.db.secret("secret", () => randomBytes(32).toString("hex")));
+    await this.purge();
+    setInterval(() => this.purge().catch((e) => console.error("sesiones:", e.message)), 3_600_000).unref();
+  }
+
+  /** Borra las sesiones vencidas. */
+  private async purge() {
     const now = Date.now();
-    for (const [k, s] of Object.entries(this.sessions.data)) if (s.exp < now) delete this.sessions.data[k];
-    this.sessions.save();
+    for (const [k, s] of await this.sessions.entries()) if (s.exp < now) await this.sessions.del(k);
   }
 
   get signupMode() {
@@ -188,19 +168,19 @@ export class Auth {
     const bearer = /^Bearer\s+(\S+)$/i.exec(String(req.headers.authorization ?? ""))?.[1];
     if (bearer?.startsWith(TOKEN_PREFIX)) {
       const key = sha(bearer);
-      const pat = this.tokens.data[key];
+      const pat = await this.tokens.get(key);
       if (!pat) return null;
       const info = await this.lookup(pat.u);
       if (!info.ok) return null;
       if (!pat.last || Date.now() - Date.parse(pat.last) > 60_000) {
         pat.last = new Date().toISOString();
-        this.tokens.save();
+        this.tokens.set(key, pat).catch((e) => console.error("auth:", e.message));
       }
       return { user: pat.u, admin: info.admin, via: "token" };
     }
     const id = parseCookies(req)[COOKIE];
     if (!id) return null;
-    const s = this.sessions.data[sha(id)];
+    const s = await this.sessions.get(sha(id));
     if (!s || s.exp < Date.now()) return null;
     const info = await this.lookup(s.u);
     if (!info.ok) return null;
@@ -246,10 +226,9 @@ export class Auth {
     );
   }
 
-  private startSession(req: IncomingMessage, res: ServerResponse, user: string) {
+  private async startSession(req: IncomingMessage, res: ServerResponse, user: string) {
     const id = rand(32);
-    this.sessions.data[sha(id)] = { u: user, exp: Date.now() + SESSION_MS };
-    this.sessions.save();
+    await this.sessions.set(sha(id), { u: user, exp: Date.now() + SESSION_MS });
     this.setCookie(req, res, id, SESSION_MS / 1000);
   }
 
@@ -282,14 +261,13 @@ export class Auth {
         // Mismo mensaje exista o no el usuario, para no revelar cuentas.
         if (!info || info.login === this.cfg.bot || info.prohibit_login) throw new HttpError(401, "Usuario o contraseña incorrectos.");
         this.logins.reset(key);
-        this.startSession(req, res, info.login);
+        await this.startSession(req, res, info.login);
         return send(await this.me({ user: info.login, admin: !!info.is_admin, via: "session" })), true;
       }
 
       if (post && p === "/api/auth/logout") {
         const id = parseCookies(req)[COOKIE];
-        if (id) delete this.sessions.data[sha(id)];
-        this.sessions.save();
+        if (id) await this.sessions.del(sha(id));
         this.setCookie(req, res, "", 0);
         return send({ ok: true }), true;
       }
@@ -299,7 +277,7 @@ export class Auth {
         if (!this.signups.take(this.ip(req))) throw new HttpError(429, "Demasiados registros desde esta red. Prueba más tarde.");
         const b = await readJson(req);
         const code = String(b.invite ?? "").trim();
-        const invite = code ? this.invites.data[sha(code)] : undefined;
+        const invite = code ? await this.invites.get(sha(code)) : undefined;
         if (this.cfg.signup === "invite" && !invite) throw new HttpError(403, "Necesitas un código de invitación válido.");
         const username = String(b.username ?? "").trim().toLowerCase();
         const email = String(b.email ?? "").trim().toLowerCase();
@@ -316,10 +294,9 @@ export class Auth {
             throw new HttpError(400, /email/i.test(e.message) ? "Ese correo ya está en uso." : "No pude crear la cuenta.");
           });
         if (invite) {
-          delete this.invites.data[sha(code)];
-          this.invites.save();
+          await this.invites.del(sha(code));
         }
-        this.startSession(req, res, username);
+        await this.startSession(req, res, username);
         return send(await this.me({ user: username, admin: false, via: "session" }), 201), true;
       }
 
@@ -338,13 +315,12 @@ export class Auth {
         await this.fj.req("PATCH", `/admin/users/${encodeURIComponent(who.user)}`, { login_name: who.user, source_id: 0, password: next });
         // Cerrar las demás sesiones, menos esta.
         const mine = sha(parseCookies(req)[COOKIE] ?? "");
-        for (const [k, s] of Object.entries(this.sessions.data)) if (s.u === who.user && k !== mine) delete this.sessions.data[k];
-        this.sessions.save();
+        for (const [k, s] of await this.sessions.entries()) if (s.u === who.user && k !== mine) await this.sessions.del(k);
         return send({ ok: true }), true;
       }
 
       if (get && p === "/api/auth/tokens") {
-        const list = Object.entries(this.tokens.data)
+        const list = (await this.tokens.entries())
           .filter(([, t]) => t.u === who.user)
           .map(([id, t]) => ({ id: id.slice(0, 12), name: t.name, created: t.created, last: t.last ?? null }));
         return send(list), true;
@@ -353,19 +329,17 @@ export class Auth {
         if (who.via !== "session") throw new HttpError(403, "Crea tokens desde la web.");
         const b = await readJson(req);
         const name = String(b.name ?? "").trim().slice(0, 60) || "Asistente";
-        if (Object.values(this.tokens.data).filter((t) => t.u === who.user).length >= 20) throw new HttpError(400, "Ya tienes 20 tokens. Revoca alguno.");
+        if ((await this.tokens.entries()).filter(([, t]) => t.u === who.user).length >= 20) throw new HttpError(400, "Ya tienes 20 tokens. Revoca alguno.");
         const token = `${TOKEN_PREFIX}${rand(32)}`;
-        this.tokens.data[sha(token)] = { u: who.user, name, created: new Date().toISOString() };
-        this.tokens.save();
+        await this.tokens.set(sha(token), { u: who.user, name, created: new Date().toISOString() });
         // Es la única vez que se ve completo.
         return send({ token, id: sha(token).slice(0, 12), name }, 201), true;
       }
       let r: RegExpExecArray | null;
       if (req.method === "DELETE" && (r = /^\/api\/auth\/tokens\/([0-9a-f]{12})$/.exec(p))) {
-        const key = Object.keys(this.tokens.data).find((k) => k.startsWith(r![1]) && this.tokens.data[k].u === who.user);
+        const key = (await this.tokens.entries()).find(([k, t]) => k.startsWith(r![1]) && t.u === who.user)?.[0];
         if (!key) throw new HttpError(404, "No existe ese token.");
-        delete this.tokens.data[key];
-        this.tokens.save();
+        await this.tokens.del(key);
         return send({ ok: true }), true;
       }
 
@@ -373,13 +347,12 @@ export class Auth {
         if (!who.admin) throw new HttpError(403, "Sólo un administrador puede invitar.");
         const b = await readJson(req);
         const code = `inv_${rand(12)}`;
-        this.invites.data[sha(code)] = { by: who.user, created: new Date().toISOString(), note: String(b.note ?? "").slice(0, 80) || undefined };
-        this.invites.save();
+        await this.invites.set(sha(code), { by: who.user, created: new Date().toISOString(), note: String(b.note ?? "").slice(0, 80) || undefined });
         return send({ code }, 201), true;
       }
       if (route === "GET /api/auth/invites") {
         if (!who.admin) throw new HttpError(403, "Sólo un administrador puede ver las invitaciones.");
-        return send(Object.values(this.invites.data).map((i) => ({ by: i.by, created: i.created, note: i.note ?? null }))), true;
+        return send((await this.invites.entries()).map(([, i]) => ({ by: i.by, created: i.created, note: i.note ?? null }))), true;
       }
 
       throw new HttpError(404, "No encontrado.");
