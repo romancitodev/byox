@@ -7,10 +7,11 @@ import Quest from "./Quest.astro";
 import Assistant from "./Assistant.astro";
 import Icon from "./Icon.astro";
 import LangSwitch from "./LangSwitch.astro";
-import { getSample } from "../../lib/sample.js";
+import { getSample, getHero } from "../../lib/sample.js";
 import { appHref, startHref, startLabelFor, navLabelFor } from "../../lib/links.js";
 import { tr, locales } from "../../lib/landing-i18n.js";
 import "../../styles/landing.css";
+import "../../styles/demo.css";
 import "../../styles/v2.css";
 import "../../styles/quest.css";
 import "../../styles/bento.css";
@@ -21,6 +22,7 @@ interface Props {
 const { lang = "es" } = Astro.props;
 const t = tr(lang);
 const sample = getSample(lang);
+const hero = getHero(lang);
 const startLabel = startLabelFor(lang);
 const navLabel = navLabelFor(lang);
 
@@ -44,7 +46,9 @@ const heat = Array.from({ length: 16 * 7 }, (_, k) => {
 });
 
 // Sin lista de espera configurada, los botones llevan a las preguntas en lugar de a un formulario inexistente.
-const plans = t.plans.items.map((p) => (p.cta[1] === "#espera" && !waitlist ? { ...p, cta: [t.plans.moreInfo, "#preguntas"] } : p));
+const noWait = (p) => (p.cta[1] === "#espera" && !waitlist ? { ...p, cta: [t.plans.moreInfo, "#preguntas"] } : p);
+const plans = t.plans.items.map(noWait);
+const also = t.plans.also.items.map(noWait);
 
 const faq = t.faq.items;
 const andJoin = (list) => list.map((d) => `#${d}`).join(` ${t.and} `);
@@ -93,7 +97,7 @@ const docsNote = t.nav.docsNote;
 
       <div class="v2-stage reveal">
         <div class="v2-beam"></div>
-        <Demo course={sample} lang={lang} />
+        <Demo course={hero} lang={lang} />
       </div>
     </section>
 
@@ -353,11 +357,28 @@ const docsNote = t.nav.docsNote;
           <article class={`reveal${pl.on ? " on" : ""}`}>
             <span class="tag">{pl.tag}</span>
             <h3><Icon name={pl.i} />{pl.n}</h3>
+            <p class="meta">{pl.meta}</p>
             <p>{pl.d}</p>
-            <ul>{pl.li.map((x) => <li><Icon name="check" size={14} />{x}</li>)}</ul>
+            <dl class="lim">{pl.rows.map(([k, v]) => <div><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
             <a class="more" href={pl.cta[1]}>{pl.cta[0]} <span aria-hidden="true">→</span></a>
           </article>
         ))}
+      </div>
+      <div class="v2-units reveal">
+        <h3>{t.plans.units.title}</h3>
+        <dl>{t.plans.units.items.map(([k, v]) => <div><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+      </div>
+      <div class="v2-also reveal">
+        <h3>{t.plans.also.title}</h3>
+        <ul>
+          {also.map((pl) => (
+            <li>
+              <div><b>{pl.n}</b> <span class="tag">{pl.tag}</span></div>
+              <p>{pl.d}</p>
+              <a class="more" href={pl.cta[1]}>{pl.cta[0]} <span aria-hidden="true">→</span></a>
+            </li>
+          ))}
+        </ul>
       </div>
       {waitlist && (
         <form id="espera" class="v2-wait reveal" data-waitlist={waitlist} novalidate>

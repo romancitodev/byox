@@ -1,70 +1,258 @@
 ---
-// La vista de un curso, como en la app, con la etapa del demo a punto de cerrarse.
-// landing.js la anima: test que falla, test que pasa, push, CI y la etapa que se cierra.
+// La vista de un curso tal como la muestra la app (/app/c/<curso>/<n>): barra lateral, mapa de etapas,
+// la etapa con el diagnóstico del test y el panel derecho. Los datos son de ejemplo.
+// landing.js la anima con un único atributo, `data-state`: fail -> run -> ok (+ el aviso de etapa cerrada);
+// los fragmentos que dependen del estado llevan `data-v="fail run"`, y los que cambian de color, `data-b`/`data-a`.
+import Icon from "./Icon.astro";
 import { demoScene } from "../../lib/sample.js";
 import { tr } from "../../lib/landing-i18n.js";
 
 const { course, lang = "es" } = Astro.props;
-const t = tr(lang).demo;
-const scene = demoScene(course);
-const { cur, opens, before } = scene;
-const ms = course.milestones.find((m) => m.id === cur.milestone);
-const doneBefore = Object.values(before).filter((s) => s === "done").length;
+const T = tr(lang);
+const t = T.demo;
+const { cur, opens, before, after } = demoScene(course);
+const byN = new Map(course.issues.map((i) => [i.n, i]));
 const total = course.issues.length;
-const msRows = course.milestones.map((m) => {
+const count = (map) => Object.values(map).filter((s) => s === "done").length;
+const doneB = count(before);
+const doneA = count(after);
+const sha = { fail: "3f9a1c2", run: "b81e4d0" };
+const curMs = course.milestones.find((m) => m.id === cur.milestone);
+const needs = cur.deps.map((d) => byN.get(d));
+const unlocks = course.issues.filter((i) => i.deps.includes(cur.n));
+const next = opens[0];
+
+// Tramos: los terminados se pliegan solos, como en la app (salvo el de la etapa abierta).
+const rows = course.milestones.map((m) => {
   const list = course.issues.filter((i) => i.milestone === m.id);
-  return { m, list, done: list.filter((i) => before[i.n] === "done").length, open: m.id === cur.milestone };
+  const first = list[0];
+  const lit = (st) => course.issues.filter((i) => i.n < first.n).every((i) => st[i.n] === "done") && st[first.n] === "done";
+  return {
+    m, list,
+    dB: list.filter((i) => before[i.n] === "done").length,
+    dA: list.filter((i) => after[i.n] === "done").length,
+    folded: list.every((i) => before[i.n] === "done") && m.id !== cur.milestone,
+    litB: lit(before), litA: lit(after),
+  };
 });
+const leftIn = (st) => course.issues.filter((i) => i.milestone === cur.milestone && st[i.n] !== "done").length;
+const goal = (left) => (left === 0 ? t.goalDone(curMs.title) : left === 1 ? t.goalOne(curMs.title) : t.goalMany(left, curMs.title));
+const pct = (st) => Math.round((count(st) / total) * 100);
+const cmd = `byox test ${cur.n}`;
 ---
 
-<div class="demo" data-demo data-after={JSON.stringify(scene.after)} data-cur={cur.n} aria-label={t.aria(cur.n, course.title)} role="img">
-  <div class="demo-bar">
+<div class="demo" data-demo data-state="ok" data-after={JSON.stringify(after)} aria-label={t.aria(cur.n, course.title)} role="img">
+  <div class="dm-chrome">
     <span class="dots"><i></i><i></i><i></i></span>
-    <span class="crumbs">{t.courses} <b>›</b> {course.title} <b>›</b> <span class="cur">#{cur.n}</span></span>
-    <span class="grow"></span>
-    <span class="chip run" data-run><span class="led"></span><span data-run-text>{t.upToDate}</span></span>
+    <span class="dm-url">localhost:3333/app/c/{course.slug}/{cur.n}</span>
   </div>
-  <div class="demo-body">
-    <nav class="demo-rail">
-      <div class="segs" data-segs>
-        {course.issues.map((i) => <i class={`${before[i.n]}${i.n === cur.n ? " cur" : ""}`} data-seg={i.n}></i>)}
+
+  <div class="dm-app">
+    <!-- barra lateral -->
+    <aside class="dm-side">
+      <div class="dm-ws">
+        <span class="dm-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.4C11 6.4 11.5 12 14.2 12M6.6 17.6C11 17.6 11.5 12 14.2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".6" /><circle cx="4.6" cy="6.4" r="2.6" fill="currentColor" /><circle cx="4.6" cy="17.6" r="2.6" fill="currentColor" /><circle cx="18" cy="12" r="4.4" fill="#fff" /></svg></span>
+        <span class="hide-slim dm-grow">byox</span>
+        <span class="hide-slim dm-collapse"><Icon name="panel-left" size={16} /></span>
       </div>
-      <div class="rail-count"><span data-count>{doneBefore}</span> {t.of} {total} {t.stages} · <span class="mono">{course.image}</span></div>
-      <ol>
-        {msRows.map(({ m, list, done, open }) => (
-          <>
-            <li class="ms"><span>{m.title}</span><span class="n">{done}/{list.length}</span></li>
-            {open &&
-              list.map((i) => (
-                <li class={`st ${before[i.n]}${i.n === cur.n ? " cur" : ""}`} data-stage={i.n}>
-                  <span class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span>
-                  <span class="sn">{i.n}</span>
-                  <span class="tt">{i.title}</span>
+      <div class="dm-search"><Icon name="search" size={16} /><span class="hide-slim">{t.search}</span><kbd class="hide-slim dm-kbd">Ctrl K</kbd></div>
+      <div class="dm-nav">
+        <Icon name="house" size={16} /><span class="hide-slim">{t.home}</span>
+        <span class="count hide-slim" data-v="fail run"><i class="dm-led down"></i>1</span>
+      </div>
+      <div class="dm-nav"><Icon name="book-open" size={16} /><span class="hide-slim">{t.courses}</span><span class="count hide-slim">4</span></div>
+      <div class="dm-nav"><Icon name="activity" size={16} /><span class="hide-slim">{t.activity}</span></div>
+      <div class="dm-nav"><Icon name="pen-line" size={16} /><span class="hide-slim">{t.authored}</span></div>
+      <div class="dm-label hide-slim">{t.inProgress}</div>
+      <div class="dm-nav course on">
+        <i class="dot" data-b="fail" data-a="on" data-cs="on"></i><span class="hide-slim dm-ell">{course.title}</span>
+        <span class="bar hide-slim"><i style={`--wb:${pct(before)}%;--wa:${pct(after)}%`}></i></span>
+      </div>
+      <div class="dm-nav course">
+        <i class="dot on"></i><span class="hide-slim dm-ell">{t.otherCourse}</span>
+        <span class="bar hide-slim"><i style="--wb:40%;--wa:40%"></i></span>
+      </div>
+      <div class="dm-grow"></div>
+      <div class="dm-sys">
+        <i class="dm-led ok" data-v="fail ok"></i><i class="dm-led busy" data-v="run"></i>
+        <span class="hide-slim" data-v="fail ok">{t.services}</span><span class="hide-slim" data-v="run">{t.runnerBusy}</span>
+      </div>
+      <div class="dm-sys"><i class="dm-led ok"></i><span class="hide-slim">{t.assistant}</span></div>
+      <div class="dm-me"><span class="avatar">{t.user[0].toUpperCase()}</span><span class="hide-slim name">{t.user}</span></div>
+    </aside>
+
+    <div class="dm-page">
+      <!-- barra de la página: ubicación y estado del CI -->
+      <header class="dm-bar">
+        <nav class="dm-crumbs">
+          <span class="dm-crumb-root">{t.courses}</span><Icon name="chevron-right" size={14} />
+          <span class="dm-ell mid">{course.title}</span><Icon name="chevron-right" size={14} />
+          <span class="cur">#{cur.n}</span>
+        </nav>
+        <span class="dm-grow"></span>
+        <span class="dm-chip mcp dm-opt"><i class="dm-led ok"></i>{t.assistant}</span>
+        <span class="dm-chip bad run" data-v="fail"><i class="dm-led down"></i>{t.runFail(cur.n, sha.fail)}</span>
+        <span class="dm-chip run" data-v="run"><i class="dm-led busy"></i>{t.runBusy(sha.run)}</span>
+        <span class="dm-chip run" data-v="ok"><i class="dm-led ok"></i>{t.runOk(sha.run)}</span>
+        <span class="dm-chip dm-opt"><Icon name="git-branch" size={14} />{t.repo}</span>
+        <span class="dm-chip flame"><Icon name="flame" size={14} />{t.streak}</span>
+      </header>
+
+      <div class="dm-course">
+        <!-- mapa de etapas -->
+        <nav class="dm-track">
+          <div class="dm-track-h">
+            <div class="segs">
+              {course.issues.map((i) => <i class={i.n === cur.n ? "cur" : ""} data-b={before[i.n]} data-a={after[i.n]} data-cs={after[i.n]}></i>)}
+            </div>
+            <div class="t">
+              <span><span data-v="fail run">{t.stagesOf(doneB, total)}</span><span data-v="ok">{t.stagesOf(doneA, total)}</span></span>
+              <span class="mono">{course.image}</span>
+            </div>
+          </div>
+          <ol class="dm-stages">
+            {rows.map(({ m, list, dB, dA, folded, litB, litA }) => (
+              <>
+                <li class={folded ? "folded lit" : ""} data-b={litB ? "lit" : ""} data-a={litA ? "lit" : ""} data-cs={litA ? "lit" : ""}>
+                  <div class="ms-row" data-open={folded ? "false" : "true"}>
+                    <span class="label">{m.title}</span>
+                    <span class="n">
+                      {folded && <Icon name="check" size={12} />}
+                      <span data-v="fail run">{dB}/{list.length}</span><span data-v="ok">{dA}/{list.length}</span>
+                    </span>
+                    <Icon name="chevron-right" size={14} />
+                  </div>
                 </li>
-              ))}
-          </>
-        ))}
-      </ol>
-    </nav>
-    <div class="demo-main">
-      <h3><span class="num">#{cur.n}</span>{cur.title}</h3>
-      <div class="props">
-        <span class="badge ready" data-badge>{t.available}</span>
-        <span class="p">{ms?.title}</span>
-        {cur.deps.length > 0 && <span class="p">{t.requires} {cur.deps.map((d) => `#${d}`).join(` ${tr(lang).and} `)}</span>}
+                {!folded && list.map((i) => (
+                  <li data-b={before[i.n] === "done" ? "lit" : ""} data-a={after[i.n] === "done" ? "lit" : ""} data-cs={after[i.n] === "done" ? "lit" : ""}>
+                    <div class={`stage${i.n === cur.n ? " cur failing" : ""}`} data-b={before[i.n]} data-a={after[i.n]} data-cs={after[i.n]}>
+                      <span class="node"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg></span>
+                      <span class="sn">{i.n}</span><span class="st">{i.title}</span>
+                      {i.n === cur.n && <span class="fail-dot" data-v="fail run"></span>}
+                    </div>
+                  </li>
+                ))}
+              </>
+            ))}
+          </ol>
+        </nav>
+
+        <!-- la etapa -->
+        <main class="dm-main">
+          <article class="dm-article">
+            <h3 class="dm-title"><span class="num">#{cur.n}</span>{cur.title}</h3>
+            <div class="dm-props">
+              <span class="dm-badge ready" data-v="fail run">{t.state.ready}</span>
+              <span class="dm-badge done" data-v="ok">{t.state.done}</span>
+              <span class="sep"></span>
+              <span class="p"><Icon name="milestone" size={14} />{curMs?.title}</span>
+              <span class="sep dm-opt"></span>
+              <span class="p dm-opt"><Icon name="external-link" size={14} />{t.issue}</span>
+            </div>
+
+            <section class="dm-failbox" data-v="fail run">
+              <div class="fail-h">
+                <Icon name="circle-x" size={16} /><b>{t.failTitle}</b>
+                <span class="muted" set:html={t.failWhen(`<code>${sha.fail}</code>`)} />
+                <span class="dm-chip sm dm-opt"><Icon name="external-link" size={14} />Run</span>
+              </div>
+              <div class="fail-b">
+                <p class="msg">{t.failMsg}</p>
+                <div class="dm-diff">
+                  <div><span class="l">{t.expected}</span><code><mark class="a">200 OK</mark></code></div>
+                  <div><span class="l">{t.actual}</span><code><mark class="b">404 Not Found</mark></code></div>
+                </div>
+                <span class="where"><Icon name="file-code" size={14} /><code>server.go:48:9</code></span>
+                <span class="dm-log">{t.log}</span>
+              </div>
+            </section>
+
+            <div class="dm-tabs">
+              <span class="tab on">{t.tabs.instr}</span>
+              <span class="tab">{t.tabs.hints}<span class="cnt">0/3</span></span>
+              <span class="tab">{t.tabs.out}<span class="cnt bad" data-v="fail run">{t.tabs.fails}</span></span>
+              <span class="tab">{t.tabs.act}</span>
+            </div>
+
+            <div class="dm-notice done" data-v="ok">
+              <Icon name="circle-check" size={16} /><div><b>{t.doneTitle}</b> {t.doneText}</div>
+            </div>
+            <div class="dm-md">
+              <h4>{t.md.h}</h4>
+              <p set:html={t.md.p} />
+              <ul>{t.md.li.map((x) => <li set:html={x} />)}</ul>
+            </div>
+            <section class="dm-verify">
+              <div class="verify-h"><Icon name="terminal" size={16} />{t.verify.title}<span set:html={t.verify.note} /></div>
+              <div class="cmd-tabs"><span class="on">byox</span><span>PowerShell / cmd</span><span>Git Bash / Linux</span></div>
+              <div class="term"><code>{cmd}</code><span class="copy"><Icon name="copy" size={13} />{t.verify.copy}</span></div>
+              <p>{t.verify.hint}</p>
+            </section>
+          </article>
+        </main>
+
+        <!-- propiedades de la etapa -->
+        <aside class="dm-aside">
+          <section>
+            <h5>{t.aside.goal}</h5>
+            <div class="segs">
+              {course.issues.map((i) => <i class={i.n === cur.n ? "cur" : ""} data-b={before[i.n]} data-a={after[i.n]} data-cs={after[i.n]}></i>)}
+            </div>
+            <p class="muted tnum"><span data-v="fail run">{t.stagesOf(doneB, total)}</span><span data-v="ok">{t.stagesOf(doneA, total)}</span></p>
+            <p class="goal"><span data-v="fail run">{goal(leftIn(before))}</span><span data-v="ok">{goal(leftIn(after))}</span></p>
+          </section>
+          {needs.length > 0 && (
+            <section>
+              <h5>{t.aside.needs}</h5>
+              <ul class="links">{needs.map((x) => <li><span class="mini done"></span><span class="n">{x.n}</span><span class="tt">{x.title}</span></li>)}</ul>
+            </section>
+          )}
+          {unlocks.length > 0 && (
+            <section>
+              <h5>{t.aside.unlocks}</h5>
+              <ul class="links">{unlocks.map((x) => <li><span class="mini" data-b={before[x.n]} data-a={after[x.n]} data-cs={after[x.n]}></span><span class="n">{x.n}</span><span class="tt">{x.title}</span></li>)}</ul>
+            </section>
+          )}
+          <section>
+            <h5>{t.aside.repo}</h5>
+            <div class="clone"><code>git clone http://localhost:3000/{t.user}/{course.slug}.git</code><Icon name="copy" size={14} /></div>
+          </section>
+        </aside>
       </div>
-      <div class="lines" aria-hidden="true"><i style="width:92%"></i><i style="width:78%"></i><i style="width:85%"></i><i style="width:40%"></i></div>
-      <div class="term">
-        <div class="term-h"><span>{t.terminal}</span><span class="mono">~/{course.slug}</span></div>
-        <pre data-term></pre>
-      </div>
+
+      <!-- la terminal: lo que hace la persona y lo que imprime el CLI; es lo que mueve el resto de la demo -->
+      <section class="dm-term" aria-hidden="true">
+        <div class="term-h"><Icon name="terminal" size={14} /><b>{t.term.title}</b><span class="cwd">~/{course.slug}</span></div>
+        <div class="term-b">
+          <div class="tl" data-v="fail"><span class="pr">$</span> <span class="cm">byox test {cur.n}</span></div>
+          <div class="tl bad" data-v="fail">{t.term.failed(cur.title)}</div>
+          <div class="tl bold ind" data-v="fail">{t.failMsg}</div>
+          <div class="tl" data-v="fail"><span class="pr">$</span> <i class="caret"></i></div>
+
+          <div class="tl typ" data-v="run ok" style="--d:0s;--ch:8"><span class="pr">$</span> <span class="cm">git push</span></div>
+          <div class="tl typ" data-v="run ok" style="--d:.5s;--ch:10"><span class="pr">$</span> <span class="cm">byox watch</span></div>
+          <div class="tl cy late" data-v="run ok" style="--d:1.2s">{t.term.waiting(sha.run)}</div>
+          <div class="tl cy late" data-v="run ok" style="--d:2.2s">{t.term.testing}</div>
+          <div class="tl good" data-v="ok">{t.term.closed(cur.n, cur.title)}</div>
+          {next && <div class="tl warn" data-v="ok">{t.term.opened(next.n, next.title)}</div>}
+          <div class="tl" data-v="ok">
+            {course.issues.map((i) => <span class={after[i.n] === "done" ? "g" : after[i.n] === "ready" ? "y" : "d"}>{after[i.n] === "done" || after[i.n] === "ready" ? "■" : "□"}</span>)}
+            <span class="dim"> {t.term.stages(doneA, total)}</span>
+          </div>
+        </div>
+      </section>
     </div>
-    <div class="done-card" data-done-card>
-      <div class="ingot"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg></div>
-      <b>{t.stageDone}</b>
-      <span>#{cur.n} {cur.title}</span>
-      {opens.length > 0 && <div class="unl">{opens.length > 1 ? t.unlockedMany : t.unlockedOne} {opens.map((o) => <em>#{o.n} {o.title}</em>)}</div>}
+
+    <!-- aviso de etapa cerrada, como el de la app -->
+    <div class="dm-overlay">
+      <div class="dm-modal">
+        <div class="ingot"><Icon name="circle-check" size={24} /></div>
+        <h4>{t.modal.title}</h4>
+        <p class="what">#{cur.n} {cur.title}</p>
+        <p class="goal">{goal(leftIn(after))}</p>
+        {next && <div class="unl"><p>{t.modal.unlocked}</p><div>#{next.n} {next.title}</div></div>}
+        {next && <span class="dm-btn">{t.modal.next(next.n)}</span>}
+      </div>
     </div>
   </div>
-  <script type="application/json" data-script set:html={JSON.stringify({ n: cur.n, test: cur.test, image: course.image })} />
 </div>

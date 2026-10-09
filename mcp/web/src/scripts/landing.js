@@ -75,79 +75,20 @@ if (steps && !reduced) {
 }
 
 // ---------- demo del hero ----------
+// La demo es la vista de un curso de la app. Todo cambia con `data-state` (fail -> run -> ok):
+// el CSS muestra los fragmentos `data-v` del estado y pinta los `data-b`/`data-a` (antes/después).
 const demo = document.querySelector("[data-demo]");
 if (demo) {
-  const data = JSON.parse(demo.querySelector("[data-script]").textContent);
-  const after = JSON.parse(demo.dataset.after);
-  const term = demo.querySelector("[data-term]");
-  const run = demo.querySelector("[data-run]");
-  const runText = demo.querySelector("[data-run-text]");
-  const badge = demo.querySelector("[data-badge]");
-  const card = demo.querySelector("[data-done-card]");
-  const count = demo.querySelector("[data-count]");
-  const stages = [...demo.querySelectorAll("[data-stage]")];
-  const segsEl = [...demo.querySelectorAll("[data-seg]")];
-  const initial = {
-    stages: stages.map((s) => s.className),
-    segs: segsEl.map((s) => s.className),
-    count: count.textContent,
-  };
-  const sha = () => Math.random().toString(16).slice(2, 9);
-
-  let lines = [];
-  const draw = (typing = "") => {
-    term.innerHTML = `${lines.join("\n")}${lines.length ? "\n" : ""}<span class="p">$</span> ${esc(typing)}<span class="caret"></span>`;
-  };
-  const out = (html) => {
-    lines.push(html);
-    draw();
-  };
-  const type = async (cmd) => {
-    for (let k = 1; k <= cmd.length; k++) {
-      draw(cmd.slice(0, k));
-      await wait(40 + Math.random() * 40);
-    }
-    await wait(240);
-    lines.push(`<span class="p">$</span> ${esc(cmd)}`);
-    draw();
-  };
-
-  const reset = () => {
-    lines = [];
-    draw();
-    stages.forEach((s, k) => (s.className = initial.stages[k]));
-    segsEl.forEach((s, k) => (s.className = initial.segs[k]));
-    count.textContent = initial.count;
-    badge.className = "badge ready";
-    badge.textContent = S.demo.available;
-    run.classList.remove("busy");
-    runText.textContent = S.demo.upToDate;
-    card.classList.remove("show");
-  };
-
-  const closeStage = () => {
-    for (const s of stages) {
-      const n = Number(s.dataset.stage);
-      s.classList.remove("locked", "ready", "done");
-      s.classList.add(after[n]);
-      if (n === data.n) {
-        s.classList.add("pop");
-        setTimeout(() => s.classList.remove("pop"), 300);
-      }
-    }
-    segsEl.forEach((s) => {
-      const n = Number(s.dataset.seg);
-      s.classList.remove("locked", "ready", "done");
-      s.classList.add(after[n]);
-    });
-    count.textContent = Object.values(after).filter((x) => x === "done").length;
-    badge.className = "badge done";
-    badge.textContent = S.demo.completed;
+  const cells = [...demo.querySelectorAll("[data-b]")];
+  const curNode = demo.querySelector(".stage.cur");
+  const setState = (state) => {
+    demo.dataset.state = state;
+    for (const c of cells) c.dataset.cs = state === "ok" ? c.dataset.a : c.dataset.b;
   };
 
   const sparks = () => {
     if (reduced) return;
-    const r = card.querySelector(".ingot").getBoundingClientRect();
+    const r = demo.querySelector(".dm-modal .ingot").getBoundingClientRect();
     const colors = ["var(--ember)", "#ffb347", "#ffd27a", "var(--done)"];
     for (let k = 0; k < 24; k++) {
       const s = document.createElement("span");
@@ -164,44 +105,29 @@ if (demo) {
     }
   };
 
-  const why = /^rust/.test(data.image) ? S.demo.whyRust : S.demo.why;
   const scene = async () => {
-    reset();
-    await wait(700);
-    await type(`byox test ${data.n}`);
-    out(`<span class="dim">${esc(data.test)}  ·  ${esc(data.image)}</span>`);
-    await wait(900);
-    out(`<span class="bad">${S.demo.fails(data.n)}</span> <span class="dim">· ${why}</span>`);
-    await wait(1500);
-    out(`<span class="dim">${S.demo.solve}</span>`);
-    await wait(1100);
-    await type(`byox test ${data.n}`);
-    await wait(900);
-    out(`<span class="good">${S.demo.passes(data.n)}</span>`);
-    await wait(900);
-    await type(`git commit -qam "#${data.n}" && git push`);
-    const s = sha();
-    out(`<span class="dim">→ main ${s}</span>`);
-    run.classList.add("busy");
-    runText.innerHTML = S.demo.running(s);
-    await wait(2200);
-    run.classList.remove("busy");
-    runText.innerHTML = S.demo.upToDateAt(s);
-    closeStage();
-    out(`<span class="good">${S.demo.ci(data.n)}</span>`);
-    await wait(250);
-    card.classList.add("show");
-    sparks();
+    demo.removeAttribute("data-celebrate");
+    setState("fail"); // el test del push anterior falló: se ve qué esperaba y dónde
     await wait(4200);
+    setState("run"); // nuevo push (se escribe en la terminal): el runner ejecuta los tests
+    await wait(3600);
+    setState("ok"); // pasó: se cierra la etapa y se abre la siguiente
+    curNode?.classList.add("pop");
+    setTimeout(() => curNode?.classList.remove("pop"), 300);
+    await wait(900);
+    demo.setAttribute("data-celebrate", "");
+    sparks();
+    await wait(4300);
+    demo.removeAttribute("data-celebrate");
+    await wait(500);
   };
 
-  if (reduced) {
-    // Sin animación: el estado final, quieto.
-    lines = [`<span class="p">$</span> byox test ${data.n}`, `<span class="good">${S.demo.passes(data.n)}</span>`, `<span class="p">$</span> git push`, `<span class="good">${S.demo.ci(data.n)}</span>`];
-    draw();
-    closeStage();
-    card.classList.add("show");
-  } else whileVisible(demo, scene);
+  // Sin animación (o con pantalla pequeña de fondo): el estado final, quieto, sin el aviso.
+  setState("ok");
+  if (!reduced) {
+    setState("fail");
+    whileVisible(demo, scene);
+  }
 }
 
 // ---------- el asistente creando un curso ----------

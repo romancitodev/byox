@@ -18,8 +18,26 @@ import cloud from "lucide/dist/esm/icons/cloud.mjs";
 import building from "lucide/dist/esm/icons/building.mjs";
 import terminal from "lucide/dist/esm/icons/terminal.mjs";
 import bot from "lucide/dist/esm/icons/bot.mjs";
+// La demo del hero reproduce la interfaz de la app: sus íconos.
+import house from "lucide/dist/esm/icons/house.mjs";
+import bookOpen from "lucide/dist/esm/icons/book-open.mjs";
+import activity from "lucide/dist/esm/icons/activity.mjs";
+import search from "lucide/dist/esm/icons/search.mjs";
+import panelLeft from "lucide/dist/esm/icons/panel-left.mjs";
+import chevronRight from "lucide/dist/esm/icons/chevron-right.mjs";
+import gitBranch from "lucide/dist/esm/icons/git-branch.mjs";
+import flame from "lucide/dist/esm/icons/flame.mjs";
+import externalLink from "lucide/dist/esm/icons/external-link.mjs";
+import circleX from "lucide/dist/esm/icons/circle-x.mjs";
+import fileCode from "lucide/dist/esm/icons/file-code.mjs";
+import milestone from "lucide/dist/esm/icons/milestone.mjs";
+import tag from "lucide/dist/esm/icons/tag.mjs";
+import copy from "lucide/dist/esm/icons/copy.mjs";
+import lockIc from "lucide/dist/esm/icons/lock.mjs";
+import arrowRight from "lucide/dist/esm/icons/arrow-right.mjs";
+import x from "lucide/dist/esm/icons/x.mjs";
 
-const icons = { code, check, "circle-check": circleCheck, lightbulb, sparkles, server, cpu, rocket, layers, upload, "pen-line": penLine, share, grad, users, cloud, building, terminal, bot };
+const icons = { code, check, "circle-check": circleCheck, lightbulb, sparkles, server, cpu, rocket, layers, upload, "pen-line": penLine, share, grad, users, cloud, building, terminal, bot, house, "book-open": bookOpen, activity, search, "panel-left": panelLeft, "chevron-right": chevronRight, "git-branch": gitBranch, flame, "external-link": externalLink, "circle-x": circleX, "file-code": fileCode, milestone, tag, copy, lock: lockIc, "arrow-right": arrowRight, x };
 const { name, size = 18 } = Astro.props;
 const node = icons[name] ?? [];
 const inner = node.map(([tag, a]) => `<${tag} ${Object.entries(a).map(([k, v]) => `${k}="${v}"`).join(" ")}/>`).join("");

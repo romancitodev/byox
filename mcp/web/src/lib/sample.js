@@ -64,6 +64,35 @@ export const sampleEn = {
 /** La muestra según el idioma de la página. */
 export const getSample = (lang) => (lang === "en" ? sampleEn : sample);
 
+// Otro curso inventado para la demo del hero (el resto de la página usa el shell), así no se repite el mismo ejemplo.
+// Etapa 7 = la que se cierra en la animación: depende de #4 y #6, y al cerrarla se abre #8.
+const heroTitles = {
+  es: ["Aceptar una conexión TCP", "Responder 200 OK", "Leer la línea de petición", "Rutas y respuestas 404", "Leer las cabeceras", "Leer el cuerpo con Content-Length", "Servir archivos estáticos", "Tipos de contenido (MIME)", "Conexiones persistentes", "Varios clientes a la vez"],
+  en: ["Accept a TCP connection", "Reply with 200 OK", "Read the request line", "Routes and 404 replies", "Read the headers", "Read the body with Content-Length", "Serve static files", "Content types (MIME)", "Persistent connections", "Several clients at once"],
+};
+const heroMilestones = {
+  es: ["Conexiones", "Peticiones", "Archivos", "Concurrencia"],
+  en: ["Connections", "Requests", "Files", "Concurrency"],
+};
+const heroLayout = [
+  [1, "m1", []], [2, "m1", [1]],
+  [3, "m2", [1]], [4, "m2", [3]], [5, "m2", [3]], [6, "m2", [5]],
+  [7, "m3", [4, 6]], [8, "m3", [7]],
+  [9, "m4", [6]], [10, "m4", [8, 9]],
+];
+const heroImage = "golang:1.25";
+const heroBase = { slug: "build-your-own-http-server", title: "Build your own HTTP server", image: heroImage, lang: language(heroImage) };
+const heroFor = (l) => ({
+  ...heroBase,
+  milestones: ["m1", "m2", "m3", "m4"].map((id, k) => ({ id, title: heroMilestones[l][k] })),
+  issues: heroLayout.map(([n, milestone, deps], k) => ({
+    n, milestone, deps, title: heroTitles[l][k],
+    test: `go test ./... -run ${l === "en" ? "TestStage" : "TestPaso"}${String(n).padStart(2, "0")}`,
+  })),
+});
+export const heroSample = { es: heroFor("es"), en: heroFor("en") };
+export const getHero = (lang) => (lang === "en" ? heroSample.en : heroSample.es);
+
 /**
  * La escena del demo: una etapa a mitad de curso cuyas dependencias ya están cerradas,
  * y lo que se abre al cerrarla. Se calcula con los deps, no está escrita a mano.

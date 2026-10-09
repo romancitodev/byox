@@ -45,7 +45,7 @@ body { background: var(--paper); }
 .v2-cta kbd { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 6px; background: color-mix(in srgb, var(--on-ember) 18%, transparent); font: 500 12px var(--mono); }
 .v2-micro { margin: 18px 0 0; color: var(--ink-3); font-size: 13px; }
 
-.v2-stage { position: relative; margin: 72px auto 0; max-width: 1040px; text-align: left; perspective: 1400px; }
+.v2-stage { position: relative; margin: 72px auto 0; max-width: 1120px; text-align: left; perspective: 1400px; }
 .v2-stage .demo { transform: rotateX(var(--rx, 6deg)); transform-origin: 50% 100%; transition: transform .6s cubic-bezier(.2, .7, .3, 1); background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 0 0 1px var(--line), 0 40px 120px -30px color-mix(in srgb, var(--ember) 35%, #000); }
 .v2-beam { transform: rotateX(var(--rx, 6deg)); transform-origin: 50% 100%; position: absolute; inset: -3px; border-radius: 15px; z-index: 0; pointer-events: none; padding: 3px;
   background: conic-gradient(from var(--a), transparent 0 55%, color-mix(in srgb, var(--ember) 90%, #fff) 80%, transparent 100%); animation: spin 6s linear infinite;
@@ -289,7 +289,7 @@ body { background: var(--paper); }
 
 
 /* ===== planes y lista de espera ===== */
-.v2-plans { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.v2-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); }
 .v2-plans article { display: flex; flex-direction: column; padding: 28px 24px 0; }
 .v2-plans article:first-child { padding-left: 0; }
 .v2-plans article + article { border-left: 1px solid var(--line); }
@@ -297,9 +297,11 @@ body { background: var(--paper); }
 .v2-plans .on .tag { background: var(--done-wash); color: var(--done); }
 .v2-plans h3 { margin: 16px 0 8px; font-size: 20px; letter-spacing: -.02em; }
 .v2-plans p { margin: 0; color: var(--ink-2); font-size: 14.5px; }
-.v2-plans ul { list-style: none; margin: 20px 0 24px; padding: 0; display: grid; gap: 8px; color: var(--ink-2); font-size: 14px; }
-.v2-plans li { position: relative; padding-left: 20px; }
-.v2-plans li::before { content: "✓"; position: absolute; left: 0; color: var(--done); font-weight: 700; }
+.v2-plans .meta { margin: 0 0 12px; color: var(--ink-3); font-size: 13px; }
+.v2-plans .lim { margin: 22px 0 24px; padding: 0; border-top: 1px solid var(--line-soft); }
+.v2-plans .lim div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 14px; padding: 9px 0; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+.v2-plans .lim dt { color: var(--ink-2); }
+.v2-plans .lim dd { margin: 0; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .v2-plans .more { margin-top: auto; padding-bottom: 4px; color: var(--ink); font-size: 14px; font-weight: 500; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 25%, transparent); text-underline-offset: 4px; }
 .v2-plans .more:hover { text-decoration-color: var(--ember); }
 .v2-wait { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 32px; align-items: center; margin-top: 56px; padding: 28px 0 0; border-top: 1px solid var(--line); }
@@ -315,14 +317,32 @@ body { background: var(--paper); }
 .v2-wait .state.ok { color: var(--done); }
 .v2-wait .state.err { color: var(--bad); }
 @media (max-width: 880px) {
-  .v2-plans { grid-template-columns: 1fr 1fr; }
-  .v2-plans article, .v2-plans article:first-child { padding: 24px 20px 20px 0; border-left: 0; border-bottom: 1px solid var(--line); }
-  .v2-plans article:nth-child(even) { padding-left: 20px; border-left: 1px solid var(--line); }
+  .v2-plans { grid-template-columns: 1fr; }
+  .v2-plans article, .v2-plans article:first-child { padding: 24px 0 22px; border-left: 0; border-bottom: 1px solid var(--line); }
   .v2-wait { grid-template-columns: 1fr; }
 }
-@media (max-width: 560px) {
-  .v2-plans { grid-template-columns: 1fr; }
-  .v2-plans article:nth-child(even) { padding-left: 0; border-left: 0; }
+
+/* qué mide cada límite: una línea por unidad, sin tarjetas */
+.v2-units { margin-top: 36px; }
+.v2-units h3, .v2-also h3 { margin: 0 0 12px; color: var(--ink-3); font-size: 12.5px; font-weight: 500; }
+.v2-units dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-top: 1px solid var(--line-soft); }
+.v2-units dl > div { padding: 14px 24px 0 0; }
+.v2-units dl > div + div { padding-left: 24px; border-left: 1px solid var(--line-soft); }
+.v2-units dt { color: var(--ink); font-size: 14px; font-weight: 600; }
+.v2-units dd { margin: 3px 0 0; color: var(--ink-2); font-size: 14px; }
+/* planes anunciados sin detalle */
+.v2-also { margin-top: 40px; }
+.v2-also ul { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0; padding: 0; border-top: 1px solid var(--line-soft); }
+.v2-also li { display: flex; flex-direction: column; gap: 4px; padding: 14px 24px 0 0; }
+.v2-also li + li { padding-left: 24px; border-left: 1px solid var(--line-soft); }
+.v2-also b { font-size: 15px; font-weight: 600; }
+.v2-also .tag { margin-left: 6px; padding: 2px 9px; border-radius: 99px; background: var(--sunk); color: var(--ink-3); font-size: 11.5px; font-weight: 500; }
+.v2-also p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.v2-also .more { margin-top: auto; padding-top: 4px; align-self: flex-start; color: var(--ink); font-size: 14px; font-weight: 500; text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 25%, transparent); text-underline-offset: 4px; }
+.v2-also .more:hover { text-decoration-color: var(--ember); }
+@media (max-width: 880px) {
+  .v2-units dl, .v2-also ul { grid-template-columns: 1fr; }
+  .v2-units dl > div, .v2-units dl > div + div, .v2-also li, .v2-also li + li { padding: 14px 0 0; border-left: 0; }
 }
 
 /* ===== íconos Lucide ===== */
@@ -331,5 +351,3 @@ body { background: var(--paper); }
 .v2-chips li .ico { color: var(--ember); }
 .ico-tile { display: grid; place-items: center; width: 38px; height: 38px; margin-bottom: 14px; border-radius: 10px; border: 1px solid var(--line); background: color-mix(in srgb, var(--ember) 9%, transparent); color: var(--ember); }
 .v2-story-steps h3 .ico, .v2-aud h3 .ico, .v2-plans h3 .ico { margin-right: 9px; color: var(--ember); }
-.v2-plans li { display: flex; align-items: flex-start; gap: 8px; }
-.v2-plans li .ico { margin-top: 4px; color: var(--done, #3fb950); }

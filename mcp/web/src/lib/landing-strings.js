@@ -5,20 +5,6 @@
 export const ui = {
   es: {
     and: "y",
-    // landing.js: demo del hero
-    demo: {
-      available: "Disponible",
-      completed: "Completada",
-      upToDate: "Tests al día",
-      running: (sha) => `Ejecutando tests en <code>${sha}</code>`,
-      upToDateAt: (sha) => `Tests al día · <code>${sha}</code>`,
-      fails: (n) => `✕ #${n} falla`,
-      passes: (n) => `✓ #${n} pasa`,
-      ci: (n) => `✓ CI: #${n} completada`,
-      whyRust: "el test alcanza el todo!() del esqueleto",
-      why: "el esqueleto aún no lo resuelve",
-      solve: "# resuelves la etapa en tu editor",
-    },
     // landing.js: grafo de etapas
     graph: {
       requires: "requiere",
@@ -65,19 +51,6 @@ export const ui = {
   },
   en: {
     and: "and",
-    demo: {
-      available: "Available",
-      completed: "Completed",
-      upToDate: "Tests up to date",
-      running: (sha) => `Running tests on <code>${sha}</code>`,
-      upToDateAt: (sha) => `Tests up to date · <code>${sha}</code>`,
-      fails: (n) => `✕ #${n} fails`,
-      passes: (n) => `✓ #${n} passes`,
-      ci: (n) => `✓ CI: #${n} completed`,
-      whyRust: "the test hits the skeleton's todo!()",
-      why: "the skeleton doesn't solve it yet",
-      solve: "# you solve the stage in your editor",
-    },
     graph: {
       requires: "requires",
       noReqs: "no requirements",
