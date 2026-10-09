@@ -30,6 +30,9 @@ const json = (res: ServerResponse, data: unknown, status = 200) => {
   res.end(JSON.stringify(data));
 };
 
+/** Un segmento «..» sube de carpeta; un nombre que solo lo contiene (como `_..abc.css`) es válido. */
+const hasDotDot = (p: string) => p.split(/[\/]/).some((seg) => seg === ".." || /^%2e%2e$/i.test(seg));
+
 export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients: Clients, auth: Auth, onProgress: (user: string) => void) {
   const scopes = new Map<string, ReturnType<typeof scope>>();
   const forUser = (user: string) => {
@@ -321,7 +324,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
       return true;
     }
     // La documentación son páginas estáticas: /docs, /docs/<página>.
-    if (req.method === "GET" && (p === "/docs" || p.startsWith("/docs/")) && !extname(p) && !p.includes("..")) {
+    if (req.method === "GET" && (p === "/docs" || p.startsWith("/docs/")) && !extname(p) && !hasDotDot(p)) {
       const file = await readFile(new URL(`docs${p.replace(/\/+$/, "").slice("/docs".length)}/index.html`, DIST)).catch(() => null);
       res.writeHead(file ? 200 : 404, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache" });
       res.end(file ?? "No encontrado");
@@ -338,7 +341,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
       res.end(await readFile(new URL(p === "/" ? "index.html" : "app/index.html", DIST)));
       return true;
     }
-    if (req.method === "GET" && TYPES[extname(p)] && !p.includes("..")) {
+    if (req.method === "GET" && TYPES[extname(p)] && !hasDotDot(p)) {
       const file = await readFile(new URL(`.${p}`, DIST)).catch(() => null);
       if (file) {
         // Lo que está en /_astro/ lleva el hash en el nombre: no cambia nunca.
