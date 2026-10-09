@@ -1103,3 +1103,14 @@ details.optional, .hint, .verify, .page-link, .cover-bar, .map, .stage-map, .dif
 /* La barra lateral se anima (motion.js): recorta lo que sobra mientras cambia de ancho y no deja que las etiquetas salten de línea */
 .side { overflow: clip; overflow-clip-margin: 4px; }
 .side .hide-slim { white-space: nowrap; }
+
+/* Terminal del «Pruébala» y logs del test: siguen el tema (claro en claro, oscuro en oscuro) en vez de ser siempre negros */
+.verify .term { background: var(--code); color: var(--ink); }
+.verify .term .copy { border-color: var(--line-strong); color: var(--ink-2); }
+.verify .term .copy:hover { background: var(--hover); color: var(--ink); }
+.verify .cmd-tabs { background: var(--code); border-bottom-color: var(--line-soft); }
+.verify .cmd-tabs button { color: var(--ink-3); }
+.verify .cmd-tabs button:hover { color: var(--ink); }
+.verify .cmd-tabs button.on { color: var(--ink); }
+details.log pre, .logbox { background: var(--code); color: var(--ink); border: 1px solid var(--line); }
+details.log pre .hl, .logbox .hl { color: var(--ink); }

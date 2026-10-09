@@ -111,20 +111,36 @@ export function fold(row, id, folds, commit) {
   }
 }
 
-/** Barra lateral: el ancho se interpola y las etiquetas se desvanecen, en lugar de aparecer de golpe. */
+/** Barra lateral: el ancho se interpola, las etiquetas se desvanecen y lo que cambia de altura se desliza (FLIP). */
 export function slim(shell, willSlim, apply) {
   if (!on() || matchMedia("(max-width: 760px)").matches) return apply();
-  const labels = [...shell.querySelectorAll(".side .hide-slim")];
   const cols = (w) => `${w}px minmax(0, 1fr)`;
-  gsap.killTweensOf([shell, ...labels]);
+  const tops = () => [...shell.querySelectorAll(".side > *")].map((e) => [e, e.getBoundingClientRect().top]);
+  // El layout vertical difiere entre las dos formas (cabecera, títulos de sección): sin esto, al cambiar la clase todo salta de golpe.
+  const flip = (before, duration) => {
+    for (const [e, top] of before) {
+      const d = top - e.getBoundingClientRect().top;
+      if (Math.abs(d) > 0.5) gsap.fromTo(e, { y: d }, { y: 0, duration, ease: "power3.out", clearProps: "transform" });
+    }
+  };
+  const labels = () => [...shell.querySelectorAll(".side .hide-slim, .side .side-label")];
+  gsap.killTweensOf([shell, ...labels()]);
   if (willSlim) {
-    gsap.to(labels, { opacity: 0, duration: 0.12 });
-    gsap.fromTo(shell, { gridTemplateColumns: cols(236) }, { gridTemplateColumns: cols(52), duration: 0.26, ease: "power3.inOut", onComplete: () => { apply(); gsap.set(labels, { clearProps: "opacity" }); gsap.set(shell, { clearProps: "gridTemplateColumns" }); } });
+    gsap.to(labels(), { opacity: 0, duration: 0.12 });
+    gsap.fromTo(shell, { gridTemplateColumns: cols(236) }, { gridTemplateColumns: cols(52), duration: 0.26, ease: "power3.inOut", onComplete: () => {
+      const before = tops();
+      apply();
+      gsap.set(labels(), { clearProps: "opacity" });
+      gsap.set(shell, { clearProps: "gridTemplateColumns" });
+      flip(before, 0.2);
+    } });
   } else {
+    const before = tops();
     apply();
+    flip(before, 0.3);
     gsap.set(shell, { gridTemplateColumns: cols(52) });
     gsap.to(shell, { gridTemplateColumns: cols(236), duration: 0.28, ease: "power3.inOut", clearProps: "gridTemplateColumns" });
-    gsap.fromTo(shell.querySelectorAll(".side .hide-slim"), { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.25, delay: 0.1, stagger: 0.012, clearProps: "opacity,transform" });
+    gsap.fromTo(labels(), { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.25, delay: 0.1, stagger: 0.012, clearProps: "opacity,transform" });
   }
 }
 
