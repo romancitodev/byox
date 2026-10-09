@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 export MSYS_NO_PATHCONV=1  # Git Bash en Windows: no tocar rutas tipo /data
 
 [ -f .env ] && set -a && . ./.env && set +a
-BYOX_USER="${BYOX_USER:-admin}"
+BYOX_USER="${BYOX_USER:-owner}"
 BYOX_BOT="${BYOX_BOT:-byox}"
 BYOX_ORG="${BYOX_ORG:-cursos}"
 

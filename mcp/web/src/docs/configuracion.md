@@ -64,7 +64,7 @@ Activa `BYOX_TRUST_PROXY` únicamente si el servicio solo es alcanzable a travé
 
 | Variable | Qué es |
 |---|---|
-| `BYOX_USER` | Usuario administrador inicial (por defecto `admin`). |
+| `BYOX_USER` | Usuario administrador inicial (por defecto `owner`; `admin` lo reserva Forgejo). |
 | `BYOX_PASSWORD` | Su contraseña al momento de la instalación. No se actualiza si la cambias después. |
 | `BYOX_TOKEN` | Token de acceso del administrador que usa el servicio de byox para hablar con Forgejo. |
 | `BYOX_BOT` | Nombre del usuario bot (por defecto `byox`). |

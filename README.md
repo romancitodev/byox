@@ -13,7 +13,7 @@ Necesitás Docker y Git Bash (o cualquier `bash`).
 bash setup.sh
 ```
 
-Crea tu usuario administrador (`BYOX_USER`, por defecto `admin`), el bot `byox`, la
+Crea tu usuario administrador (`BYOX_USER`, por defecto `owner`), el bot `byox`, la
 organización `cursos`, registra el runner y levanta todo. La contraseña queda en `.env`.
 
 Todo exige una cuenta: entra a http://localhost:3333/app con ese usuario. Para
