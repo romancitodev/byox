@@ -5,6 +5,8 @@
   --paper: #eeeef1; --surface: #ffffff; --raised: #ffffff; --sunk: #f4f4f6; --hover: #e9e9ed; --line: #d9d9df; --line-soft: #e8e8ec; --line-strong: #bdbdc7;
   --ink: #17171a; --ink-2: #4a4a54; --ink-3: #686872;
   --ember: #e5560b; --ember-ink: #c2410c; --ember-wash: #fff4ed;
+  /* Fondo del botón primario: en claro, un naranja más profundo para que el texto blanco pase AA (5.2:1; sobre --ember daba 3.7:1) */
+  --ember-btn: #c2410c; --ember-btn-hover: #9a3412;
   --done: #16a34a; --done-wash: #ecfdf3;
   --warn: #ca8a04; --bad: #dc2626;
   --lock: #a8a8b2;
@@ -26,6 +28,7 @@
     --paper: #09090b; --surface: #121214; --raised: #1a1a1e; --sunk: #0e0e10; --hover: #212126; --line: #2a2a30; --line-soft: #1e1e23; --line-strong: #44444d;
     --ink: #f0f0f2; --ink-2: #b0b0b8; --ink-3: #8c8c96;
     --ember: #f9732f; --ember-ink: #fb8c4f; --ember-wash: rgba(249, 115, 47, .12);
+    --ember-btn: #f9732f; --ember-btn-hover: #fb8c4f;
     --done: #3fb950; --done-wash: rgba(63, 185, 80, .12);
     --warn: #eab308; --bad: #f87171;
     --lock: #4e4e57;
@@ -42,6 +45,7 @@
   --paper: #09090b; --surface: #121214; --raised: #1a1a1e; --sunk: #0e0e10; --hover: #212126; --line: #2a2a30; --line-soft: #1e1e23; --line-strong: #44444d;
   --ink: #f0f0f2; --ink-2: #b0b0b8; --ink-3: #8c8c96;
   --ember: #f9732f; --ember-ink: #fb8c4f; --ember-wash: rgba(249, 115, 47, .12);
+    --ember-btn: #f9732f; --ember-btn-hover: #fb8c4f;
   --done: #3fb950; --done-wash: rgba(63, 185, 80, .12);
   --warn: #eab308; --bad: #f87171;
   --lock: #4e4e57;
