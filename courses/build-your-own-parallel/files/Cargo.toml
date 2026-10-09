@@ -1,0 +1,10 @@
+[package]
+name = "rustminario"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+members = [".", "paralelo"]
+
+[dependencies]
+paralelo.path = "./paralelo"

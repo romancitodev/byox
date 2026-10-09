@@ -1,0 +1,79 @@
+# Generado por byox. Corre los tests de los issues abiertos en cada push,
+# cierra los que pasan y destraba los que dependían de ellos.
+name: byox
+
+on:
+  push:
+    branches: [main]
+
+env:
+  BYOX_URL: http://forgejo:3000
+  BYOX_TOKEN: ${{ secrets.BYOX_TOKEN }}
+  BYOX_HOOK: ${{ secrets.BYOX_HOOK }}
+
+jobs:
+  plan:
+    runs-on: docker
+    container:
+      image: node:22-bookworm
+    outputs:
+      ids: ${{ steps.plan.outputs.ids }}
+    steps:
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "http://byox:${BYOX_TOKEN}@forgejo:3000/${{ github.repository }}.git" "${{ github.sha }}"
+          git checkout -q FETCH_HEAD
+      - id: plan
+        name: Issues abiertos
+        run: node .course/byox.mjs plan
+
+  test:
+    needs: plan
+    if: needs.plan.outputs.ids != ''
+    runs-on: docker
+    container:
+      image: {{IMAGE}}
+      # Misma caché que `.course\test`: la segunda corrida no recompila todo.
+      volumes:
+        - {{CACHE}}:/cache
+    env:
+      CARGO_HOME: /cache/cargo
+      CARGO_TARGET_DIR: /cache/target
+      PIP_CACHE_DIR: /cache/pip
+      GOCACHE: /cache/go-build
+      GOMODCACHE: /cache/go-mod
+      npm_config_cache: /cache/npm
+    outputs:
+      passed: ${{ steps.test.outputs.passed }}
+      report: ${{ steps.test.outputs.report }}
+    steps:
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "http://byox:${BYOX_TOKEN}@forgejo:3000/${{ github.repository }}.git" "${{ github.sha }}"
+          git checkout -q FETCH_HEAD
+      - id: test
+        name: Tests
+        run: sh .course/run.sh ${{ needs.plan.outputs.ids }}
+
+  advance:
+    needs: [plan, test]
+    # Aunque el job de tests se rompa (imagen sin git, etc.) sincronizamos labels.
+    if: always() && needs.plan.outputs.ids != ''
+    runs-on: docker
+    container:
+      image: node:22-bookworm
+    steps:
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "http://byox:${BYOX_TOKEN}@forgejo:3000/${{ github.repository }}.git" "${{ github.sha }}"
+          git checkout -q FETCH_HEAD
+      - name: Avanzar el curso
+        env:
+          # Qué falló y dónde, por etapa: lo guarda el MCP para mostrarlo en la web.
+          BYOX_REPORT: ${{ needs.test.outputs.report }}
+          BYOX_RUN: ${{ github.run_number }}
+          BYOX_TEST_RESULT: ${{ needs.test.result }}
+        run: node .course/byox.mjs advance ${{ needs.test.outputs.passed }}

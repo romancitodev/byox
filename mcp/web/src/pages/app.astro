@@ -1,0 +1,15 @@
+---
+import Base from "../layouts/Base.astro";
+import "../styles/app.css";
+import "../styles/app-voice.css";
+import "../styles/app-auth.css";
+---
+
+<!-- Una sola página: el router del cliente resuelve /app, /app/cursos, /app/actividad y /app/c/<curso>/<n>. -->
+<Base title="byox">
+  <div id="app"></div>
+</Base>
+
+<script>
+  import "../scripts/app.js";
+</script>

@@ -1,0 +1,70 @@
+---
+// El grafo de etapas de un curso, armado en el build con sus deps.
+// Columnas = tramos; flechas = "esta etapa necesita aquella". landing.js lo va encendiendo.
+import { tr } from "../../lib/landing-i18n.js";
+const { course, lang = "es" } = Astro.props;
+const t = tr(lang).graph;
+const W = 190, H = 62, R = 16, PAD_X = 56, TOP = 80;
+const col = new Map(course.milestones.map((m, k) => [m.id, k]));
+const rowIn = new Map();
+const pos = new Map();
+for (const i of course.issues) {
+  const c = col.get(i.milestone) ?? 0;
+  const r = rowIn.get(c) ?? 0;
+  rowIn.set(c, r + 1);
+  pos.set(i.n, { x: PAD_X + c * W, y: TOP + r * H });
+}
+const rows = Math.max(...rowIn.values());
+const width = PAD_X * 2 + (course.milestones.length - 1) * W;
+const height = TOP + (rows - 1) * H + 40;
+
+// Una curva de la dependencia a la etapa: horizontal entre tramos, vertical dentro del mismo.
+const edge = (a, b) => {
+  if (a.x === b.x) return `M${a.x} ${a.y + R} C${a.x + 26} ${a.y + R + 14} ${b.x + 26} ${b.y - R - 14} ${b.x} ${b.y - R}`;
+  const x1 = a.x + R, x2 = b.x - R, mx = (x1 + x2) / 2;
+  // Si saltea un tramo, pasa por arriba: derecho cruzaría el nodo de en medio y parecería una cadena.
+  if (b.x - a.x > W) {
+    const lift = Math.min(a.y, b.y) - H * 0.6;
+    return `M${a.x} ${a.y - R} C${a.x} ${lift} ${b.x} ${lift} ${b.x} ${b.y - R}`;
+  }
+  return `M${x1} ${a.y} C${mx} ${a.y} ${mx} ${b.y} ${x2} ${b.y}`;
+};
+const edges = course.issues.flatMap((i) => i.deps.filter((d) => pos.has(d)).map((d) => ({ from: d, to: i.n, d: edge(pos.get(d), pos.get(i.n)) })));
+// Orden en que se pueden cerrar (topológico, por número cuando hay empate): así se enciende.
+const order = [];
+const seen = new Set();
+const visit = (n) => {
+  if (seen.has(n)) return;
+  seen.add(n);
+  for (const d of course.issues.find((i) => i.n === n)?.deps ?? []) visit(d);
+  order.push(n);
+};
+course.issues.forEach((i) => visit(i.n));
+const info = Object.fromEntries(course.issues.map((i) => [i.n, { t: i.title, deps: i.deps }]));
+---
+
+<figure class="graph" data-graph data-order={JSON.stringify(order)} data-info={JSON.stringify(info)}>
+  <div class="graph-scroll">
+    <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={t.aria(course.issues.length, course.title)}>
+      {course.milestones.map((m, k) => (
+        <text class="ms-label" x={PAD_X + k * W} y="22" text-anchor="middle">{m.title}</text>
+      ))}
+      <g class="edges">
+        {edges.map((e) => <path d={e.d} data-from={e.from} data-to={e.to} />)}
+      </g>
+      <g class="nodes">
+        {course.issues.map((i) => {
+          const p = pos.get(i.n);
+          return (
+            <g class={`gnode ${i.deps.length ? "locked" : "ready"}`} data-n={i.n} transform={`translate(${p.x} ${p.y})`} tabindex="0">
+              <title>#{i.n} {i.title}</title>
+              <circle r={R} />
+              <text text-anchor="middle" dy="4">{i.n}</text>
+            </g>
+          );
+        })}
+      </g>
+    </svg>
+  </div>
+  <figcaption data-caption>{t.caption}</figcaption>
+</figure>

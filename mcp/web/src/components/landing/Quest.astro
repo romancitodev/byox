@@ -1,0 +1,56 @@
+---
+// Tablero interactivo del grafo: el visitante simula pushes y ve cómo se desbloquean las etapas.
+// Toda la lógica vive en scripts/quest.js; acá sólo van los datos y el esqueleto.
+import { tr } from "../../lib/landing-i18n.js";
+import { startHref, startLabelFor } from "../../lib/links.js";
+const { course, lang = "es" } = Astro.props;
+const t = tr(lang).quest;
+const fail = t.fail;
+const data = {
+  milestones: course.milestones,
+  issues: course.issues.map(({ n, milestone, title, deps, test }) => ({ n, milestone, title, deps, test })),
+  slug: course.slug,
+  fail,
+};
+---
+
+<div class="quest" data-quest>
+  <script type="application/json" data-quest-data set:html={JSON.stringify(data)} />
+  <div class="quest-top">
+    <div class="quest-prog">
+      <div class="segs" data-q-segs></div>
+      <span class="tnum"><b data-q-count>0</b> {t.of} {data.issues.length} {t.stages}</span>
+      <span class="quest-hint" data-q-hint><i class="dot"></i>{t.tapHint}</span>
+      <span class="quest-done">{t.complete}</span>
+    </div>
+    <div class="quest-actions">
+      <button type="button" class="q-btn" data-q-play><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg><span>{t.play}</span></button>
+      <button type="button" class="q-btn ghost" data-q-reset>{t.reset}</button>
+    </div>
+  </div>
+  <div class="quest-body">
+    <div class="quest-board" data-q-board>
+      <svg data-q-svg role="group" aria-label={t.mapAria}></svg>
+    </div>
+    <aside class="quest-panel">
+      <div class="qp-head"><span class="qp-n" data-qp-n></span><span class="qp-badge" data-qp-badge></span></div>
+      <h3 data-qp-title></h3>
+      <p class="qp-ms" data-qp-ms></p>
+      <div class="qp-sec"><span>{t.requires}</span><div class="qp-chips" data-qp-deps></div></div>
+      <div class="qp-sec"><span>{t.unlocks}</span><div class="qp-chips" data-qp-opens></div></div>
+      <code class="cmd" data-qp-cmd></code>
+      <div class="qp-fail" data-qp-fail hidden>
+        <p><b>✕</b> {fail.msg}</p>
+        <code>{fail.where}</code>
+        <button type="button" class="q-btn ghost sm" data-qp-hint>{t.hintBtn}</button>
+        <p class="qp-hintbox" data-qp-hintbox hidden>{fail.hint}</p>
+      </div>
+      <button type="button" class="q-btn primary" data-qp-run>{t.simulate}</button>
+      <div class="qp-end" data-qp-end hidden>
+        <a class="v2-cta" href={startHref}>{startLabelFor(lang)}</a>
+        <button type="button" class="q-btn ghost" data-q-reset>{t.restart}</button>
+      </div>
+      <ul class="qp-log" data-q-log role="log" aria-live="polite" aria-label={t.activity}></ul>
+    </aside>
+  </div>
+</div>

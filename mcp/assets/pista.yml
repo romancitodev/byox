@@ -1,0 +1,25 @@
+# Generado por byox. Comentá `/pista` en un issue y el bot responde con la siguiente.
+name: pista
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  pista:
+    if: startsWith(github.event.comment.body, '/pista')
+    runs-on: docker
+    container:
+      image: node:22-bookworm
+    env:
+      BYOX_URL: http://forgejo:3000
+      BYOX_TOKEN: ${{ secrets.BYOX_TOKEN }}
+      BYOX_HINTS: ${{ secrets.BYOX_HINTS }}
+    steps:
+      - name: Checkout
+        run: |
+          git init -q .
+          git fetch -q --depth 1 "http://byox:${BYOX_TOKEN}@forgejo:3000/${{ github.repository }}.git" main
+          git checkout -q FETCH_HEAD
+      - name: Pista
+        run: node .course/byox.mjs hint ${{ github.event.issue.number }}

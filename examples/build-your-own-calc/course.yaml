@@ -1,0 +1,44 @@
+title: build-your-own-calc
+description: Una calculadora de expresiones en Python, del tokenizer al parser con precedencia.
+image: python:3.13
+topics: [python, parsing, ejemplo]
+
+milestones:
+  - id: lexer
+    title: Tokens
+    description: Pasar de texto a una lista de tokens.
+  - id: parser
+    title: Evaluar
+    description: Precedencia, paréntesis y errores con contexto.
+
+issues:
+  - id: 1
+    milestone: lexer
+    title: Partir la expresión en tokens
+    labels: [fácil]
+    deps: []
+    body: issues/01-tokens.md
+    test: python -m unittest -v tests/test_01.py
+    hints:
+      - "Recorré el string con un índice, no con `split`: `3*(4-1)` no tiene espacios."
+      - "Cuando ves un dígito, seguí avanzando mientras haya dígitos y convertí el pedazo con `int`."
+  - id: 2
+    milestone: parser
+    title: Evaluar con precedencia
+    labels: [medio]
+    deps: [1]
+    body: issues/02-evaluar.md
+    test: python -m unittest -v tests/test_02.py
+    hints:
+      - "Una función por nivel de precedencia: una para `+ -`, otra para `* /` y otra para números y paréntesis."
+      - "La de `+ -` llama a la de `* /` para cada operando, y la de `* /` llama a la de números. Así la precedencia sale sola."
+      - "Para que `8-3-2` dé 3, acumulá en un loop (`while` el próximo token sea `+` o `-`) en vez de recursar a la derecha."
+  - id: 3
+    milestone: parser
+    title: Errores que dicen dónde
+    labels: [fácil]
+    deps: [1]
+    body: issues/03-errores.md
+    test: python -m unittest -v tests/test_03.py
+    hints:
+      - "Ya tenés el índice en el loop del tokenizer: es la posición."

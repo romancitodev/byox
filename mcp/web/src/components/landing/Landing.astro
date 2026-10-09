@@ -1,0 +1,428 @@
+---
+// La landing completa. La usan `/` (es) y `/en` (en): el texto sale de lib/landing-i18n.js según `lang`;
+// el marcado, los estilos y los scripts son los mismos.
+import Base from "../../layouts/Base.astro";
+import Demo from "./Demo.astro";
+import Quest from "./Quest.astro";
+import Assistant from "./Assistant.astro";
+import Icon from "./Icon.astro";
+import LangSwitch from "./LangSwitch.astro";
+import { getSample } from "../../lib/sample.js";
+import { appHref, startHref, startLabelFor, navLabelFor } from "../../lib/links.js";
+import { tr, locales } from "../../lib/landing-i18n.js";
+import "../../styles/landing.css";
+import "../../styles/v2.css";
+import "../../styles/quest.css";
+import "../../styles/bento.css";
+
+interface Props {
+  lang?: "es" | "en";
+}
+const { lang = "es" } = Astro.props;
+const t = tr(lang);
+const sample = getSample(lang);
+const startLabel = startLabelFor(lang);
+const navLabel = navLabelFor(lang);
+
+const github = import.meta.env.PUBLIC_GITHUB_URL;
+const waitlist = import.meta.env.PUBLIC_WAITLIST_URL;
+const joint = sample.issues.find((i) => i.deps.length > 1);
+
+const { words, chips } = t;
+const outcomes = t.why.outcomes;
+const f = t.features;
+
+const belt = ["Rust", "Go", "Python", "TypeScript", "C", "Zig", "Java", "Elixir", "Ruby", "C#", "Haskell", "Swift", "Docker", "Forgejo", "Git", "Claude Code"];
+
+const cliCmds = ["byox", "show", "test", "watch", "hint", "log", "open", "clone", "new", "check", "start", "export", "import", "guide"];
+
+// Mapa de calor del perfil: 16 semanas, valores deterministas.
+const heat = Array.from({ length: 16 * 7 }, (_, k) => {
+  const v = (Math.sin(k * 12.9898) * 43758.5453) % 1;
+  const a = Math.abs(v);
+  return k > 16 * 7 - 4 && k < 16 * 7 - 1 ? 0 : k === 16 * 7 - 1 ? 3 : a > 0.9 ? 3 : a > 0.72 ? 2 : a > 0.45 ? 1 : 0;
+});
+
+// Sin lista de espera configurada, los botones llevan a las preguntas en lugar de a un formulario inexistente.
+const plans = t.plans.items.map((p) => (p.cta[1] === "#espera" && !waitlist ? { ...p, cta: [t.plans.moreInfo, "#preguntas"] } : p));
+
+const faq = t.faq.items;
+const andJoin = (list) => list.map((d) => `#${d}`).join(` ${t.and} `);
+const docsNote = t.nav.docsNote;
+---
+
+<Base title={t.meta.title} description={t.meta.description} lang={lang} alternates={locales.map((l) => ({ lang: l.lang, href: l.href }))}>
+  <script is:inline>document.documentElement.dataset.theme = "dark";</script>
+
+  <div class="v2-progress" data-progress aria-hidden="true"></div>
+  <header class="l-nav v2-nav">
+    <a class="brand" href={t.home} aria-label={t.brandLabel}>
+      <span class="logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.4C11 6.4 11.5 12 14.2 12M6.6 17.6C11 17.6 11.5 12 14.2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".6" /><circle cx="4.6" cy="6.4" r="2.6" fill="currentColor" /><circle cx="4.6" cy="17.6" r="2.6" fill="currentColor" /><circle cx="18" cy="12" r="4.4" fill="var(--ember)" /></svg></span>byox
+    </a>
+    <nav>
+      <a href="#como">{t.nav.how}</a>
+      <a href="#funciones">{t.nav.features}</a>
+      <a href="#asistente">{t.nav.assistant}</a>
+      <a href="#crear">{t.nav.create}</a>
+      <a href="#planes">{t.nav.plans}</a>
+      <a href="#preguntas">{t.nav.faq}</a>
+      <a href="/docs">{t.nav.docs}{docsNote && <span class="l-note">{docsNote}</span>}</a>
+      {github && <a href={github} rel="noopener">GitHub</a>}
+    </nav>
+    <LangSwitch lang={lang} />
+    <a class="l-btn primary sm" href={startHref}>{navLabel}</a>
+  </header>
+
+  <main class="landing v2">
+    <!-- HERO -->
+    <section class="v2-hero" data-spot>
+      <div class="v2-grid" aria-hidden="true"></div>
+      <div class="v2-glow" aria-hidden="true"><i></i><i></i></div>
+
+      <p class="v2-pill reveal"><span class="tag">{t.hero.tag}</span> {t.hero.pill}</p>
+      <h1 class="reveal">
+        {t.hero.h1}<br />
+        <span class="v2-rot" data-rotate data-words={JSON.stringify(words)} aria-live="polite"><span class="v2-word">{words[0]}</span><span class="v2-caret"></span></span>
+      </h1>
+      <p class="v2-sub reveal" set:html={t.hero.subHtml} />
+      <div class="cta reveal">
+        <a class="v2-cta" href={startHref}>{startLabel}</a>
+        <a class="l-btn ghost" href="#como">{t.hero.seeHow}</a>
+      </div>
+      <ul class="v2-chips reveal">{chips.map(([i, c]) => <li><Icon name={i} size={14} />{c}</li>)}</ul>
+
+      <div class="v2-stage reveal">
+        <div class="v2-beam"></div>
+        <Demo course={sample} lang={lang} />
+      </div>
+    </section>
+
+    <!-- LENGUAJES -->
+    <section class="belt-wrap v2-belt" aria-label={t.belt.label}>
+      <p class="belt-title">{t.belt.title}</p>
+      <div class="belt"><div class="belt-track">{[...belt, ...belt].map((b) => <span>{b}</span>)}</div></div>
+    </section>
+
+    <!-- RESULTADOS -->
+    <section class="v2-block">
+      <div class="v2-head reveal">
+        <p class="kicker">{t.why.kicker}</p>
+        <h2 set:html={t.why.h2Html} />
+        <p>{t.why.p}</p>
+      </div>
+      <div class="v2-aud plain big">
+        {outcomes.map((o) => (
+          <article class="reveal"><span class="ico-tile"><Icon name={o.i} size={20} /></span><h3>{o.t}</h3><p>{o.d}</p></article>
+        ))}
+      </div>
+    </section>
+
+    <!-- COMO -->
+    <section id="como" class="v2-block">
+      <div class="v2-head reveal">
+        <p class="kicker">{t.how.kicker}</p>
+        <h2 set:html={t.how.h2Html} />
+        <p>{t.how.p}</p>
+      </div>
+
+      <div class="v2-story" data-story data-active="0">
+        <div class="v2-story-in">
+          <ol class="v2-story-steps">
+            {t.how.steps.map((s, k) => (
+              <li data-step={k}><span class="v2-n">{`0${k + 1}`}</span><h3><Icon name={s.icon} />{s.t}</h3><p>{s.d}</p></li>
+            ))}
+          </ol>
+          <div class="v2-win">
+            <div class="v2-win-head"><span class="dots"><i></i><i></i><i></i></span><span class="mono">~/{sample.slug}</span></div>
+            <pre class="v2-win-body"><span data-s="0"><b class="p">$</b> byox clone {sample.slug}
+<em class="ok">✓</em> {t.how.term.repo}
+  {sample.issues.length} {t.how.term.stages} · {sample.milestones.length} {t.how.term.milestones}
+
+</span><span data-s="1"><b class="p">$</b> byox test {joint.n}
+<em class="d">{joint.test}</em>
+<em class="ok">✓</em> PASS
+
+</span><span data-s="2"><b class="p">$</b> git push
+<em class="d">{t.how.term.planLog}</em>
+<em class="d">{t.how.term.testLog}</em>
+<em class="d">advance</em> <em class="ok">✓</em> {t.how.term.done(joint.n)}</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="v2-quest-wrap reveal">
+        <p class="v2-quest-lead"><span>{t.how.questLead.tag}</span> {t.how.questLead.text}</p>
+        <Quest course={sample} lang={lang} />
+      </div>
+      <div class="v2-midcta reveal">
+        <p>{t.how.midcta}</p>
+        <a class="v2-cta" href={startHref}>{startLabel}</a>
+      </div>
+    </section>
+
+    <!-- FUNCIONES -->
+    <section id="funciones" class="v2-block">
+      <div class="v2-head reveal">
+        <p class="kicker">{f.kicker}</p>
+        <h2 set:html={f.h2Html} />
+        <p>{f.p}</p>
+      </div>
+
+      <div class="v2-bento" data-bento>
+        <article class="b-cell b-ci" data-spot data-cell="ci">
+          <div class="b-viz" aria-hidden="true">
+            <div class="v2-pipe b-pipe">
+              <span class="n n0">git push</span><i data-k="1"></i><span class="n n1"><b>plan</b></span><i data-k="2"></i><span class="n n2"><b>test</b><u></u></span><i data-k="3"></i><span class="n n3"><b>advance</b></span>
+            </div>
+            <svg class="b-cascade b-fan" viewBox="0 0 230 150">
+              <path class="e7" d="M0 75 C46 75 56 24 104 24" />
+              <path class="e9" d="M0 75 H104" />
+              <path class="e10" d="M0 75 C46 75 56 126 104 126" />
+              <g class="d7" transform="translate(118 24)"><circle r="14" /><path d="M-5 .5 -1.5 4 5.5 -3.5" /><text class="lb" x="26" y="4">#7</text></g>
+              <g class="d9" transform="translate(118 75)"><circle class="halo" r="14" /><circle r="14" /><text y="4">9</text><text class="lb" x="26" y="4">#9</text></g>
+              <g class="d10" transform="translate(118 126)"><circle r="14" /><text y="4">10</text><text class="lb why" x="26" y="4">{f.ci.missing(10, 8)}</text></g>
+            </svg>
+            <svg class="b-cascade b-fan-m" viewBox="0 0 310 122">
+              <path class="e7" d="M270 0 C270 40 40 28 40 62" />
+              <path class="e9" d="M270 0 C270 36 155 26 155 62" />
+              <path class="e10" d="M270 0 L270 62" />
+              <g class="d7" transform="translate(40 76)"><circle r="14" /><path d="M-5 .5 -1.5 4 5.5 -3.5" /><text class="lm" y="32">#7</text></g>
+              <g class="d9" transform="translate(155 76)"><circle class="halo" r="14" /><circle r="14" /><text y="4">9</text><text class="lm" y="32">#9</text></g>
+              <g class="d10" transform="translate(270 76)"><circle r="14" /><text y="4">10</text><text class="lm why" y="32">{f.ci.missing(10, 8)}</text></g>
+            </svg>
+          </div>
+          <h3 class="b-t" set:html={f.ci.tHtml} />
+        </article>
+
+        <article class="b-cell b-live" data-spot data-cell="live">
+          <div class="b-viz" aria-hidden="true">
+            <div class="b-livebox">
+              <div class="b-pill">
+                <span class="s s0"><i class="dot"></i>{f.live.running(joint.n)}</span>
+                <span class="s s1"><b>✓</b> {f.live.done(joint.n)}</span>
+                <span class="s s2"><i class="dot ok"></i>{f.live.upToDate}</span>
+                <em class="bar"></em>
+                {[[-22, -20], [0, -26], [22, -20], [-30, 0], [30, 0], [-22, 20], [0, 26], [22, 20]].map(([x, y]) => <u class="sp" style={`--dx:${x}px;--dy:${y}px`}></u>)}
+              </div>
+              <span class="b-next">{f.live.next(9)}</span>
+            </div>
+          </div>
+          <h3 class="b-t" set:html={f.live.tHtml} />
+        </article>
+
+        <article class="b-cell b-err" data-spot data-cell="err">
+          <div class="b-viz" aria-hidden="true">
+            <div class="b-errbar"><b>✕</b> {f.err.msg}</div>
+            <div class="b-code">
+              <div style="--l:0"><i>29</i><code>func split(s string) []string {'{'}</code></div>
+              <div style="--l:1"><i>30</i><code>  var out []string</code></div>
+              <div style="--l:2" class="hl"><i>31</i><code>  for _, f := range <span class="wave">strings.Fields</span>(s) {'{'}</code></div>
+              <div style="--l:3"><i>32</i><code>    out = append(out, f)</code></div>
+              <div style="--l:4"><i>33</i><code>  {'}'}</code></div>
+            </div>
+            <span class="b-chip">parser.go:31:5 · byox log</span>
+          </div>
+          <h3 class="b-t" set:html={f.err.tHtml} />
+        </article>
+
+        <article class="b-cell b-hint" data-spot data-cell="hint">
+          <div class="b-viz" aria-hidden="true">
+            <div class="b-h b-h1">{f.hint.h1}</div>
+            <div class="b-h b-h2">{f.hint.h2}</div>
+            <div class="b-h b-h3"><i></i><i></i></div>
+            <div class="b-hbar"><span class="b-ask">{f.hint.ask} <b data-hn>2</b> {f.hint.of}</span>
+              <span class="b-src">{f.hint.src.map((s) => <em>{s}</em>)}</span></div>
+          </div>
+          <h3 class="b-t" set:html={f.hint.tHtml} />
+        </article>
+
+        <article class="b-cell b-docs" data-spot data-cell="docs">
+          <div class="b-viz" aria-hidden="true">
+            <div class="b-seg"><span class="sw">{f.docs.web}</span><span class="st">{f.docs.term}</span></div>
+            <div class="b-panel">
+              <div class="v-web">
+                <b></b><i style="width:92%"></i><i style="width:80%"></i><i style="width:86%"></i><i style="width:46%"></i>
+                <div class="map"><u class="g"></u><u class="g"></u><u class="e"></u><u></u></div>
+              </div>
+              <div class="v-term">
+                <div><span class="p">$</span> byox show {joint.n}</div>
+                <div class="d"># {joint.n} · {joint.title}</div>
+                <div class="d">{f.docs.requires} {andJoin(joint.deps)}</div>
+                <div class="d">{f.docs.test} byox test {joint.n}</div>
+              </div>
+            </div>
+          </div>
+          <h3 class="b-t" set:html={f.docs.tHtml} />
+        </article>
+
+        <article class="b-cell b-streak" data-spot data-cell="streak">
+          <div class="b-viz" aria-hidden="true">
+            <div class="b-streakrow">
+              <div class="v2-heat">{heat.map((l, k) => <i class={`l${l}${k === heat.length - 1 ? " today" : ""}`} style={`--c:${Math.floor(k / 7)};--r:${k % 7}`}></i>)}</div>
+              <div class="v2-streak-n"><b class="grad" data-count="12">0</b><span>{f.streak.days}</span></div>
+            </div>
+            <div class="b-prog"><div><i></i></div><span>{f.streak.progress}</span></div>
+          </div>
+          <h3 class="b-t" set:html={f.streak.tHtml} />
+        </article>
+
+        <article class="b-cell b-cli" data-spot data-cell="cli">
+          <div class="b-viz" aria-hidden="false">
+            <div class="b-term">
+              <div class="b-term-head">
+                <span class="dots"><i></i><i></i><i></i></span>
+                <div class="b-modes" role="group" aria-label={f.cli.modes}>
+                  <button type="button" data-mode="docker" aria-pressed="true">Docker</button>
+                  <button type="button" data-mode="local" aria-pressed="false">--local</button>
+                  <button type="button" data-mode="win" aria-pressed="false">Windows</button>
+                </div>
+              </div>
+              <div class="b-term-body" data-typer aria-hidden="true"></div>
+            </div>
+            <div class="b-cmds belt" aria-hidden="true"><div class="belt-track">{[...cliCmds, ...cliCmds].map((c) => <span>{c}</span>)}</div></div>
+            <p class="sr-only">{f.cli.cmds} {cliCmds.join(", ")}.</p>
+          </div>
+          <h3 class="b-t" set:html={f.cli.tHtml} />
+        </article>
+      </div>
+    </section>
+
+    <!-- ASISTENTE -->
+    <section id="asistente" class="v2-block v2-split">
+      <div class="v2-head reveal">
+        <p class="kicker">{t.assistant.kicker}</p>
+        <h2>{t.assistant.h2}</h2>
+        <p>{t.assistant.p}</p>
+        <ul class="v2-list">
+          {t.assistant.list.map(([cmd, d]) => <li><code>{cmd}</code> {d}</li>)}
+        </ul>
+        <p class="small">{t.assistant.small}</p>
+        <code class="cmd">claude mcp add --transport http byox http://localhost:3333/mcp</code>
+      </div>
+      <div class="reveal"><Assistant course={sample} lang={lang} /></div>
+    </section>
+
+    <!-- CREAR Y COMPARTIR -->
+    <section id="crear" class="v2-block">
+      <div class="v2-head reveal">
+        <p class="kicker">{t.make.kicker}</p>
+        <h2 set:html={t.make.h2Html} />
+        <p>{t.make.p}</p>
+      </div>
+      <div class="v2-aud plain make">
+        <article class="reveal">
+          <h3><Icon name={t.make.cards[0].icon} />{t.make.cards[0].t}</h3>
+          <p set:html={t.make.cards[0].dHtml} />
+          <div class="snip"><div><b class="p">&gt;</b> /crear_curso</div><div class="d">{t.make.cards[0].from}</div></div>
+        </article>
+        <article class="reveal">
+          <h3><Icon name={t.make.cards[1].icon} />{t.make.cards[1].t}</h3>
+          <p set:html={t.make.cards[1].dHtml} />
+          <div class="snip"><div><b class="p">$</b> byox new {t.make.slug} --lang go</div><div><b class="p">$</b> byox check</div><div><b class="p">$</b> byox start {t.make.slug}</div></div>
+        </article>
+        <article class="reveal">
+          <h3><Icon name={t.make.cards[2].icon} />{t.make.cards[2].t}</h3>
+          <p set:html={t.make.cards[2].dHtml} />
+          <div class="snip"><div><b class="p">$</b> byox export {t.make.slug}</div><div class="k">byox1-eJx9kD0OwjAMhfecwmKGq…</div></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- PARA QUIEN -->
+    <section id="para-quien" class="v2-block">
+      <div class="v2-head reveal">
+        <p class="kicker">{t.audience.kicker}</p>
+        <h2 set:html={t.audience.h2Html} />
+      </div>
+      <div class="v2-aud plain">
+        {t.audience.cards.map((c) => (
+          <article class="reveal"><h3><Icon name={c.icon} />{c.t}</h3><p>{c.d}</p></article>
+        ))}
+      </div>
+    </section>
+
+    <!-- PLANES -->
+    <section id="planes" class="v2-block">
+      <div class="v2-head reveal">
+        <p class="kicker">{t.plans.kicker}</p>
+        <h2 set:html={t.plans.h2Html} />
+        <p>{t.plans.p}</p>
+      </div>
+      <div class="v2-plans">
+        {plans.map((pl) => (
+          <article class={`reveal${pl.on ? " on" : ""}`}>
+            <span class="tag">{pl.tag}</span>
+            <h3><Icon name={pl.i} />{pl.n}</h3>
+            <p>{pl.d}</p>
+            <ul>{pl.li.map((x) => <li><Icon name="check" size={14} />{x}</li>)}</ul>
+            <a class="more" href={pl.cta[1]}>{pl.cta[0]} <span aria-hidden="true">→</span></a>
+          </article>
+        ))}
+      </div>
+      {waitlist && (
+        <form id="espera" class="v2-wait reveal" data-waitlist={waitlist} novalidate>
+          <div>
+            <h3>{t.waitlist.title}</h3>
+            <p>{t.waitlist.p}</p>
+          </div>
+          <div class="fields">
+            <label class="sr-only" for="w-mail">{t.waitlist.emailLabel}</label>
+            <input id="w-mail" name="email" type="email" required placeholder={t.waitlist.emailPlaceholder} autocomplete="email" />
+            <label class="sr-only" for="w-perfil">{t.waitlist.profileLabel}</label>
+            <select id="w-perfil" name="perfil" required>
+              <option value="" disabled selected>{t.waitlist.profilePlaceholder}</option>
+              {t.waitlist.profiles.map(([v, label]) => <option value={v}>{label}</option>)}
+            </select>
+            <input class="hp" name="web" tabindex="-1" autocomplete="off" aria-hidden="true" />
+            <button class="v2-cta" type="submit">{t.waitlist.submit}</button>
+          </div>
+          <p class="state" role="status" aria-live="polite"></p>
+        </form>
+      )}
+    </section>
+
+    <!-- FAQ -->
+    <section id="preguntas" class="v2-block narrow">
+      <div class="v2-head reveal"><p class="kicker">{t.faq.kicker}</p><h2>{t.faq.h2}</h2></div>
+      <div class="faq">
+        {faq.map(([q, a]) => (
+          <details class="reveal"><summary>{q}</summary><p set:html={a} /></details>
+        ))}
+      </div>
+    </section>
+
+    <!-- CIERRE -->
+    <section id="cierre" class="v2-final reveal" data-spot>
+      <div class="v2-aurora" aria-hidden="true"></div>
+      <div class="v2-final-in">
+        <h2 set:html={t.final.h2Html} />
+        <p>{t.final.p}</p>
+        <code class="cmd v2-copy" data-copy="bash setup.sh" tabindex="0" role="button" aria-label={t.final.copyAria}>bash setup.sh <span>{t.final.copy}</span></code>
+        <div class="cta">
+          <a class="v2-cta" href={startHref}>{startLabel}</a>
+          {github && <a class="l-btn ghost" href={github} rel="noopener">{t.final.viewCode}</a>}
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="l-foot">
+    <span>{t.footer.tagline}</span>
+    <nav>
+      <a href={appHref}>{t.nav.app}</a>
+      <a href="/docs">{t.nav.docs}{docsNote && <span class="l-note">{docsNote}</span>}</a>
+      <a href="#como">{t.nav.how}</a>
+      <a href="#funciones">{t.nav.features}</a>
+      <a href="#preguntas">{t.nav.faq}</a>
+      {github && <a href={github} rel="noopener">GitHub</a>}
+      <LangSwitch lang={lang} />
+    </nav>
+  </footer>
+</Base>
+
+<script>
+  import "../../scripts/landing.js";
+  import "../../scripts/v2.js";
+  import "../../scripts/quest.js";
+  import "../../scripts/bento.js";
+</script>

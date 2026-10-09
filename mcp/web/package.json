@@ -1,0 +1,16 @@
+{
+  "name": "byox-web",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "astro": "^7.3.6",
+    "lucide": "^1.52.0",
+    "mermaid": "^12.1.0"
+  }
+}

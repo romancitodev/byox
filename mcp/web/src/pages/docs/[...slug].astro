@@ -1,0 +1,21 @@
+---
+import Docs from "../../layouts/Docs.astro";
+import { flat } from "../../lib/docs-nav.js";
+
+export function getStaticPaths() {
+  const mods = import.meta.glob("../../docs/*.md", { eager: true });
+  return flat.map((p) => {
+    const mod = mods[`../../docs/${p.slug}.md`];
+    if (!mod) throw new Error(`Falta src/docs/${p.slug}.md`);
+    return { params: { slug: p.slug === "index" ? undefined : p.slug }, props: { page: p, mod } };
+  });
+}
+
+const { page, mod } = Astro.props;
+const Content = mod.Content;
+const headings = mod.getHeadings().filter((h) => h.depth === 2 || h.depth === 3);
+---
+
+<Docs page={page} title={mod.frontmatter.title ?? page.title} description={mod.frontmatter.description} headings={headings}>
+  <Content />
+</Docs>

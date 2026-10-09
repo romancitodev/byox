@@ -1,0 +1,21 @@
+.env
+data/
+mcp/node_modules/
+mcp/dist/
+cli/target/
+mcp/web/node_modules/
+mcp/web/dist/
+mcp/web/.astro/
+
+# Local y temporales
+.claude/
+.env.tmp
+.env.*
+!.env.example
+mcp/web/src/legacy/
+*.bak
+.DS_Store
+
+# Notas internas y de negocio: no se publican
+MONETIZACION.md
+mcp/web/LANDING.md

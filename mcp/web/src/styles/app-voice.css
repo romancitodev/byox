@@ -1,0 +1,38 @@
+/* Personalidad de contenido e interacción de /app. Solo usa tokens existentes. */
+
+/* Estados vacíos con ilustración */
+.empty-art { display: block; width: 64px; height: 64px; margin: 0 auto 14px; color: var(--ink-3); }
+.empty-art .acc { stroke: var(--ember); }
+.empty-art circle.acc { fill: var(--ember-wash); }
+.empty b { font-size: 15px; }
+.empty { max-width: 380px; margin-inline: auto; line-height: 1.5; text-wrap: balance; }
+.empty-act { margin-top: 14px; display: flex; justify-content: center; gap: 8px; }
+
+/* Toast de error: se distingue por el ícono y el borde, no solo por el texto */
+.toast { max-width: min(420px, calc(100vw - 32px)); }
+.toast span { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.toast.bad svg { color: var(--fail, var(--ember)); }
+
+/* Primer test en verde */
+.modal.first .ingot { animation: voice-pop .5s cubic-bezier(.2, 1.4, .3, 1) both; }
+.modal.first h2 { color: var(--ember-ink); }
+
+/* «y N más…» en la barra lateral */
+.side-more { color: var(--ink-3); font-size: 12.5px; }
+
+/* El contenido nuevo entra con un fundido corto; el foco programático no dibuja anillo */
+.content.view-in { animation: voice-in .18s ease-out both; }
+#content:focus { outline: none; }
+
+/* Foco por teclado: visible y con el acento */
+:is(a, button, summary, [tabindex]):focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; border-radius: 4px; }
+
+/* Los textos largos de listas nunca rompen la fila */
+.feed .sub, .resume-push span, .next-list .tt small { overflow-wrap: anywhere; }
+
+@keyframes voice-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes voice-pop { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .content.view-in, .modal.first .ingot { animation: none; }
+}

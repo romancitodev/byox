@@ -1,0 +1,27 @@
+---
+// Íconos de Lucide como SVG en línea, resueltos al compilar (no suben JavaScript al navegador).
+import code from "lucide/dist/esm/icons/code-xml.mjs";
+import check from "lucide/dist/esm/icons/check.mjs";
+import circleCheck from "lucide/dist/esm/icons/circle-check.mjs";
+import lightbulb from "lucide/dist/esm/icons/lightbulb.mjs";
+import sparkles from "lucide/dist/esm/icons/sparkles.mjs";
+import server from "lucide/dist/esm/icons/server.mjs";
+import cpu from "lucide/dist/esm/icons/cpu.mjs";
+import rocket from "lucide/dist/esm/icons/rocket.mjs";
+import layers from "lucide/dist/esm/icons/layers.mjs";
+import upload from "lucide/dist/esm/icons/upload.mjs";
+import penLine from "lucide/dist/esm/icons/pen-line.mjs";
+import share from "lucide/dist/esm/icons/share-2.mjs";
+import grad from "lucide/dist/esm/icons/graduation-cap.mjs";
+import users from "lucide/dist/esm/icons/users.mjs";
+import cloud from "lucide/dist/esm/icons/cloud.mjs";
+import building from "lucide/dist/esm/icons/building.mjs";
+import terminal from "lucide/dist/esm/icons/terminal.mjs";
+import bot from "lucide/dist/esm/icons/bot.mjs";
+
+const icons = { code, check, "circle-check": circleCheck, lightbulb, sparkles, server, cpu, rocket, layers, upload, "pen-line": penLine, share, grad, users, cloud, building, terminal, bot };
+const { name, size = 18 } = Astro.props;
+const node = icons[name] ?? [];
+const inner = node.map(([tag, a]) => `<${tag} ${Object.entries(a).map(([k, v]) => `${k}="${v}"`).join(" ")}/>`).join("");
+---
+<svg class="ico" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" set:html={inner}></svg>

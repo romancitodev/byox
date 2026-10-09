@@ -1,0 +1,94 @@
+name: byox
+
+services:
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:16
+    restart: unless-stopped
+    environment:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      FORGEJO__database__DB_TYPE: sqlite3
+      FORGEJO__security__INSTALL_LOCK: "true"
+      # En un servidor: BYOX_PUBLIC_URL=https://git.tudominio.com y BYOX_DOMAIN=git.tudominio.com en .env.
+      FORGEJO__server__ROOT_URL: ${BYOX_PUBLIC_URL:-http://localhost:3000}/
+      FORGEJO__server__DOMAIN: ${BYOX_DOMAIN:-localhost}
+      FORGEJO__server__SSH_DOMAIN: ${BYOX_DOMAIN:-localhost}
+      FORGEJO__server__SSH_PORT: "2222"
+      FORGEJO__service__DISABLE_REGISTRATION: "true"
+      FORGEJO__service__DEFAULT_ENABLE_DEPENDENCIES: "true"
+      FORGEJO__repository__DEFAULT_PRIVATE: private
+      FORGEJO__repository__DEFAULT_BRANCH: main
+      FORGEJO__actions__ENABLED: "true"
+      # El MCP recibe un webhook en cada push a un repo fuente y lo verifica.
+      FORGEJO__webhook__ALLOWED_HOST_LIST: mcp
+    volumes:
+      - forgejo-data:/data
+    ports:
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:2222:22"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:3000/api/healthz"]
+      interval: 5s
+      retries: 30
+    networks: [byox]
+
+  runner:
+    image: data.forgejo.org/forgejo/runner:13
+    restart: unless-stopped
+    # Root para poder usar el socket de Docker del host sin pelear con grupos.
+    user: "0:0"
+    command: forgejo-runner daemon --config /data/config.yml
+    volumes:
+      - ./data/runner:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      forgejo:
+        condition: service_healthy
+    networks: [byox]
+
+  mcp:
+    build:
+      context: ./mcp
+      args:
+        PUBLIC_GITHUB_URL: ${PUBLIC_GITHUB_URL:-}
+        PUBLIC_WAITLIST_URL: ${PUBLIC_WAITLIST_URL:-}
+    restart: unless-stopped
+    environment:
+      FORGEJO_URL: http://forgejo:3000
+      BYOX_PUBLIC_URL: ${BYOX_PUBLIC_URL:-http://localhost:3000}
+      BYOX_WEB_URL: ${BYOX_WEB_URL:-http://localhost:3333}
+      BYOX_TZ: ${BYOX_TZ:-America/Argentina/Buenos_Aires}
+      BYOX_USER: ${BYOX_USER:-}
+      BYOX_TOKEN: ${BYOX_TOKEN:-}
+      BYOX_BOT: ${BYOX_BOT:-}
+      BYOX_BOT_TOKEN: ${BYOX_BOT_TOKEN:-}
+      BYOX_ORG: ${BYOX_ORG:-cursos}
+      # Cuentas: closed (sólo las crea el administrador), invite (con código) u open (cualquiera).
+      BYOX_SIGNUP: ${BYOX_SIGNUP:-closed}
+      # Quién puede escribir, verificar e importar cursos: admin (por defecto) o all.
+      BYOX_AUTHORS: ${BYOX_AUTHORS:-admin}
+      # Detrás de un proxy con HTTPS: BYOX_TRUST_PROXY=1 y BYOX_SECURE_COOKIES=1.
+      BYOX_TRUST_PROXY: ${BYOX_TRUST_PROXY:-}
+      BYOX_SECURE_COOKIES: ${BYOX_SECURE_COOKIES:-}
+      BYOX_SECRET: ${BYOX_SECRET:-}
+    volumes:
+      # Para verify_course: corre esqueleto y solución en la imagen del curso.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Resultados de los tests por etapa (lo que muestra la web cuando algo falla).
+      - mcp-data:/data
+    ports:
+      - "127.0.0.1:3333:3333"
+    depends_on:
+      forgejo:
+        condition: service_healthy
+    networks: [byox]
+
+networks:
+  byox:
+    # Nombre fijo: el runner conecta los contenedores de los jobs a esta red
+    # para que lleguen a http://forgejo:3000.
+    name: byox
+
+volumes:
+  forgejo-data:
+  mcp-data:

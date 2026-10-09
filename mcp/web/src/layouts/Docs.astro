@@ -1,0 +1,109 @@
+---
+import Base from "./Base.astro";
+import "../styles/landing.css";
+import "../styles/v2.css";
+import "../styles/docs.css";
+import { nav, flat, href } from "../lib/docs-nav.js";
+import { appHref, hasApp } from "../lib/links.js";
+
+interface Props {
+  page: { slug: string; title: string; group: string };
+  title: string;
+  description?: string;
+  headings: { depth: number; slug: string; text: string }[];
+}
+const { page, title, description, headings } = Astro.props;
+const github = import.meta.env.PUBLIC_GITHUB_URL;
+const at = flat.findIndex((p) => p.slug === page.slug);
+const prev = flat[at - 1];
+const next = flat[at + 1];
+const isHome = page.slug === "index";
+const fullTitle = isHome ? "Documentación · byox" : `${title} · Documentación · byox`;
+---
+
+<Base title={fullTitle} description={description ?? "Documentación de byox: instalación, configuración, cuentas, producción y referencia."}>
+  <script is:inline>document.documentElement.dataset.theme = "dark";</script>
+
+  <header class="l-nav v2-nav docs-nav">
+    <a class="brand" href="/" aria-label="byox, inicio">
+      <span class="logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 6.4C11 6.4 11.5 12 14.2 12M6.6 17.6C11 17.6 11.5 12 14.2 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".6" /><circle cx="4.6" cy="6.4" r="2.6" fill="currentColor" /><circle cx="4.6" cy="17.6" r="2.6" fill="currentColor" /><circle cx="18" cy="12" r="4.4" fill="var(--ember)" /></svg></span>byox
+    </a>
+    <span class="docs-crumb"><span aria-hidden="true">/</span> Documentación</span>
+    <button class="docs-search" type="button" data-search aria-label="Buscar en la documentación">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+      <span>Buscar…</span><kbd>Ctrl K</kbd>
+    </button>
+    <nav class="docs-top">
+      <a href="/">Inicio</a>
+      {github && <a href={github} rel="noopener">GitHub</a>}
+    </nav>
+    {hasApp && <a class="l-btn primary sm" href={appHref}>Abrir la app</a>}
+    <button class="docs-menu" type="button" data-menu aria-label="Abrir el menú de la documentación" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+    </button>
+  </header>
+
+  <div class="docs-shell">
+    <aside class="docs-side" id="docs-side" aria-label="Documentación">
+      {nav.map((g) => (
+        <section>
+          <h2>{g.title}</h2>
+          <ul>
+            {g.pages.map((p) => (
+              <li><a href={href(p.slug)} aria-current={p.slug === page.slug ? "page" : undefined}>{p.title}</a></li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </aside>
+
+    <main class="docs-main">
+      <article class="doc">
+        {!isHome && <p class="doc-eyebrow">{page.group}</p>}
+        <slot />
+        <nav class="doc-pager" aria-label="Páginas anterior y siguiente">
+          {prev ? <a class="prev" href={href(prev.slug)}><small>Anterior</small><span>{prev.title}</span></a> : <span></span>}
+          {next ? <a class="next" href={href(next.slug)}><small>Siguiente</small><span>{next.title}</span></a> : <span></span>}
+        </nav>
+      </article>
+      <footer class="docs-foot">
+        <span>byox · build your own x, en tu propio Forgejo</span>
+        <nav>
+          <a href="/">Inicio</a>
+          {hasApp && <a href={appHref}>App</a>}
+          {github && <a href={github} rel="noopener">GitHub</a>}
+        </nav>
+      </footer>
+    </main>
+
+    <aside class="docs-toc" aria-label="En esta página">
+      {headings.length > 0 && (
+        <>
+          <h2>En esta página</h2>
+          <ul>
+            {headings.map((h) => (
+              <li class={h.depth === 3 ? "sub" : ""}><a href={`#${h.slug}`}>{h.text}</a></li>
+            ))}
+          </ul>
+        </>
+      )}
+    </aside>
+  </div>
+
+  <div class="docs-scrim" data-scrim hidden></div>
+  <div class="docs-find" data-find hidden role="dialog" aria-modal="true" aria-label="Buscar en la documentación">
+    <div class="docs-find-box">
+      <div class="docs-find-in">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+        <input type="search" placeholder="Busca: tokens, HTTPS, BYOX_SIGNUP…" autocomplete="off" spellcheck="false" aria-label="Buscar" />
+        <kbd>Esc</kbd>
+      </div>
+      <ul class="docs-find-list" role="listbox"></ul>
+      <p class="docs-find-empty" hidden>Sin resultados. Prueba con otra palabra.</p>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import "../scripts/docs.js";
+</script>

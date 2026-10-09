@@ -1,0 +1,673 @@
+title: build-your-own-redis
+description: "Un Redis en Rust desde cero: RESP, un servidor concurrente, strings, expiración, persistencia, transacciones, pub/sub, replicación y streams."
+image: rust:1.99
+topics: [rust, redis, redes, protocolos, concurrencia, bases-de-datos]
+origin: ai
+
+milestones:
+  - id: resp
+    title: "Protocolo RESP"
+    description: "Leer y escribir el protocolo de Redis, probado con bytes, todavía sin red."
+  - id: server
+    title: "El servidor"
+    description: "Un servidor TCP que atiende a muchos clientes, entiende RESP e inline, y valida los comandos."
+  - id: strings
+    title: "Strings y claves"
+    description: "SET, GET y los comandos que convierten al servidor en una base de datos."
+  - id: expire
+    title: "Expiración"
+    description: "Claves que vencen solas: la expiración pasiva al leer y la activa en segundo plano."
+  - id: lists
+    title: "Listas"
+    description: "El primer tipo que no es un string: listas, WRONGTYPE y BLPOP con clientes que esperan en orden."
+
+issues:
+  - id: 1
+    milestone: resp
+    title: "Simple strings"
+    labels: ["fácil", "protocolo"]
+    deps: []
+    body: issues/01-simple-strings.md
+    test: cargo test --test paso_01
+    hints:
+      - "Buscá la primera aparición de `\\r\\n` a partir del byte 1: lo que está en el medio es el texto."
+      - "`buf.windows(2).position(|w| w == b\"\\r\\n\")` te da dónde empieza el fin de línea."
+      - "El largo consumido es la posición del `\\r` más 2. `String::from_utf8_lossy` convierte el contenido."
+  - id: 2
+    milestone: resp
+    title: "Errores"
+    labels: ["fácil", "protocolo"]
+    deps: [1]
+    body: issues/02-errores.md
+    test: cargo test --test paso_02
+    hints:
+      - "Es el mismo formato que el simple string; solo cambia la variante de `Value`."
+      - "Un `match` sobre `buf[0]` con un brazo para `b'+'` y otro para `b'-'` que comparten la lectura de la línea."
+  - id: 3
+    milestone: resp
+    title: "Enteros"
+    labels: ["fácil", "protocolo"]
+    deps: [1]
+    body: issues/03-enteros.md
+    test: cargo test --test paso_03
+    hints:
+      - "Leé la línea como en la #1 y convertila con `str::parse::<i64>()`."
+      - "`std::str::from_utf8(linea)` te da un `&str` (o un error, si no es UTF-8)."
+  - id: 4
+    milestone: resp
+    title: "Bulk strings"
+    labels: ["fácil", "protocolo"]
+    deps: [1]
+    body: issues/04-bulk-strings.md
+    test: cargo test --test paso_04
+    hints:
+      - "Leé el encabezado como un entero (#3) y después tomá exactamente esa cantidad de bytes."
+      - "El contenido va de `fin_del_encabezado + 2` a `fin_del_encabezado + 2 + largo`; después tienen que venir `\\r\\n`."
+  - id: 5
+    milestone: resp
+    title: "Bulk strings binarios"
+    labels: ["fácil", "protocolo"]
+    deps: [4]
+    body: issues/05-bulk-binarios.md
+    test: cargo test --test paso_05
+    hints:
+      - "Si en la #4 buscaste el `\\r\\n` del final, cambialo: el largo manda."
+      - "Cortá `&buf[inicio..inicio + largo]` sin mirar qué hay adentro."
+  - id: 6
+    milestone: resp
+    title: "El bulk nulo"
+    labels: ["fácil", "protocolo"]
+    deps: [4]
+    body: issues/06-bulk-nulo.md
+    test: cargo test --test paso_06
+    hints:
+      - "Después de leer el largo, si es `-1` devolvé `NullBulk` sin buscar contenido."
+  - id: 7
+    milestone: resp
+    title: "Arrays"
+    labels: ["medio", "protocolo"]
+    deps: [2, 3, 6]
+    body: issues/07-arrays.md
+    test: cargo test --test paso_07
+    hints:
+      - "Es recursivo: para cada elemento, llamá a la misma lógica de parseo desde la posición actual."
+      - "Llevá un índice `pos` que avanza con lo que consumió cada elemento; el total es `pos` al final."
+  - id: 8
+    milestone: resp
+    title: "Arrays anidados y vacíos"
+    labels: ["fácil", "protocolo"]
+    deps: [7]
+    body: issues/08-arrays-anidados.md
+    test: cargo test --test paso_08
+    hints:
+      - "Si la #7 llama a la función general para cada elemento, esto ya debería andar. Si no, ese es el cambio."
+  - id: 9
+    milestone: resp
+    title: "El array nulo"
+    labels: ["fácil", "protocolo"]
+    deps: [7]
+    body: issues/09-array-nulo.md
+    test: cargo test --test paso_09
+    hints:
+      - "Igual que con `$-1`: si el largo del array es `-1`, devolvé `NullArray` sin leer elementos."
+  - id: 10
+    milestone: resp
+    title: "Datos incompletos"
+    labels: ["medio", "protocolo"]
+    deps: [7]
+    body: issues/10-incompletos.md
+    test: cargo test --test paso_10
+    hints:
+      - "Revisá cada acceso a `buf[i]` y cada búsqueda de `\\r\\n`: si no hay bytes suficientes, `return Ok(None)`."
+      - "Para el bulk: si `buf.len() < inicio + largo + 2`, todavía falta."
+      - "En el array, si un elemento devuelve `Ok(None)`, propagalo: el array tampoco está completo."
+  - id: 11
+    milestone: resp
+    title: "Errores de protocolo"
+    labels: ["medio", "protocolo"]
+    deps: [10]
+    body: issues/11-errores-de-protocolo.md
+    test: cargo test --test paso_11
+    hints:
+      - "Validá el tipo antes de buscar el `\\r\\n`."
+      - "Cuando conviertas el largo o el entero, un fallo de `parse::<i64>()` es un `Err`, no un `None`."
+      - "Después del contenido de un bulk, compará los dos bytes siguientes con `b\"\\r\\n\"`."
+  - id: 12
+    milestone: resp
+    title: "Escribir RESP"
+    labels: ["fácil", "protocolo"]
+    deps: []
+    body: issues/12-encode.md
+    test: cargo test --test paso_12
+    hints:
+      - "Un `match` sobre `Value` con un brazo por variante."
+      - "Para los arrays: escribí `*n\\r\\n` y llamá recursivamente para cada elemento, agregando al mismo `Vec`."
+  - id: 13
+    milestone: server
+    title: "Escuchar en un puerto"
+    labels: ["fácil", "redes"]
+    deps: []
+    body: issues/13-escuchar.md
+    test: cargo test --test paso_13
+    hints:
+      - "`TcpListener::bind(addr)?` y después `listener.local_addr()?` para saber el puerto."
+      - "`std::thread::spawn(move || for stream in listener.incoming() { ... })`: el listener se mueve al hilo."
+  - id: 14
+    milestone: server
+    title: "Responder PING"
+    labels: ["fácil", "redes"]
+    deps: [7, 12, 13]
+    body: issues/14-ping.md
+    test: cargo test --test paso_14
+    hints:
+      - "Leé del socket a un buffer y pasáselo a `resp::parse`."
+      - "El comando es un `Value::Array` de `Value::Bulk`; el primero es el nombre. Pasalo a minúsculas para comparar."
+      - "Respondé con `stream.write_all(&encode(&Value::Simple(\"PONG\".into())))`."
+  - id: 15
+    milestone: server
+    title: "Varios comandos por conexión"
+    labels: ["fácil", "redes"]
+    deps: [14]
+    body: issues/15-varios-ping.md
+    test: cargo test --test paso_15
+    hints:
+      - "Un `loop` que lee, procesa y responde."
+      - "`read` devuelve `Ok(0)` cuando el cliente cerró: es la señal para salir del loop."
+  - id: 16
+    milestone: server
+    title: "Muchos clientes a la vez"
+    labels: ["medio", "concurrencia"]
+    deps: [15]
+    body: issues/16-concurrencia.md
+    test: cargo test --test paso_16
+    hints:
+      - "Por cada `stream` que devuelve `incoming()`, un `thread::spawn` que lo atiende."
+      - "La función que atiende a un cliente tiene que ser dueña del `TcpStream`: usá `move`."
+  - id: 17
+    milestone: server
+    title: "ECHO"
+    labels: ["fácil", "redes"]
+    deps: [14]
+    body: issues/17-echo.md
+    test: cargo test --test paso_17
+    hints:
+      - "El segundo elemento del array es el mensaje; respondelo como `Value::Bulk`."
+  - id: 18
+    milestone: server
+    title: "PING con mensaje"
+    labels: ["fácil", "redes"]
+    deps: [14]
+    body: issues/18-ping-con-argumento.md
+    test: cargo test --test paso_18
+    hints:
+      - "Mirá cuántos elementos tiene el comando antes de decidir qué responder."
+  - id: 19
+    milestone: server
+    title: "Pipelining"
+    labels: ["medio", "redes"]
+    deps: [10, 15, 17]
+    body: issues/19-pipelining.md
+    test: cargo test --test paso_19
+    hints:
+      - "Después de un `read`, procesá comandos en un loop mientras `parse` devuelva `Some`."
+      - "Descartá del buffer los bytes consumidos (`buf.drain(..n)`) antes de buscar el siguiente."
+  - id: 20
+    milestone: server
+    title: "Comandos partidos"
+    labels: ["medio", "redes"]
+    deps: [19]
+    body: issues/20-comandos-partidos.md
+    test: cargo test --test paso_20
+    hints:
+      - "El buffer vive afuera del loop de lectura: cada `read` agrega al final."
+      - "Con `Ok(None)` salís del loop de procesamiento y volvés a leer, sin tocar el buffer."
+  - id: 21
+    milestone: server
+    title: "Comandos inline"
+    labels: ["medio", "redes"]
+    deps: [15, 17]
+    body: issues/21-inline.md
+    test: cargo test --test paso_21
+    hints:
+      - "Mirá el primer byte del buffer: `*` es RESP; cualquier otra cosa es una línea inline."
+      - "Buscá el `\\n`, sacá el `\\r` si está antes, y partí con `split(|b| b.is_ascii_whitespace())` descartando vacíos."
+  - id: 22
+    milestone: server
+    title: "Comillas en comandos inline"
+    labels: ["medio", "redes"]
+    deps: [21]
+    body: issues/22-comillas.md
+    test: cargo test --test paso_22
+    hints:
+      - "Recorré la línea con un índice y un estado: afuera, en comillas dobles o en simples."
+      - "En dobles, `\\` mira el byte siguiente: `n`, `r`, `t`, `b`, `a` o `x` + dos dígitos hexa."
+      - "Al cerrar comillas, si el próximo byte existe y no es espacio, devolvé el error."
+  - id: 23
+    milestone: server
+    title: "Comando desconocido"
+    labels: ["fácil", "redes"]
+    deps: [17]
+    body: issues/23-comando-desconocido.md
+    test: cargo test --test paso_23
+    hints:
+      - "Si el nombre no está entre los comandos que conocés, armá el mensaje con `format!`."
+      - "Cada argumento va como `'arg' `; solo se agrega `, with args beginning with: ` si hay argumentos."
+  - id: 24
+    milestone: server
+    title: "Cantidad de argumentos"
+    labels: ["fácil", "redes"]
+    deps: [17, 18, 23]
+    body: issues/24-aridad.md
+    test: cargo test --test paso_24
+    hints:
+      - "Una tabla `nombre → aridad` y una sola función que valida."
+      - "Aridad positiva: `args.len() == aridad`. Negativa: `args.len() >= -aridad`."
+  - id: 25
+    milestone: strings
+    title: "SET y GET"
+    labels: ["medio", "strings", "concurrencia"]
+    deps: [16, 24]
+    body: issues/25-set-get.md
+    test: cargo test --test paso_25
+    hints:
+      - "Un `HashMap<Vec<u8>, Vec<u8>>` adentro de un `Mutex`, adentro de un `Arc` que comparten todos los hilos."
+      - "Clonás el `Arc` antes de cada `thread::spawn` y cada hilo hace `.lock().unwrap()` para usar el mapa."
+      - "Agregá `set` (aridad -3) y `get` (aridad 2) a tu tabla de comandos de la #24."
+  - id: 26
+    milestone: strings
+    title: "Claves que no existen"
+    labels: ["fácil", "strings"]
+    deps: [25]
+    body: issues/26-get-nil.md
+    test: cargo test --test paso_26
+    hints:
+      - "`map.get(clave)` es `None` → `Value::NullBulk`."
+  - id: 27
+    milestone: strings
+    title: "Claves y valores binarios"
+    labels: ["fácil", "strings"]
+    deps: [25]
+    body: issues/27-binarios.md
+    test: cargo test --test paso_27
+    hints:
+      - "Si tu mapa ya es de `Vec<u8>` y no hay conversiones en el camino, esta etapa pasa sola."
+  - id: 28
+    milestone: strings
+    title: "DEL"
+    labels: ["fácil", "strings"]
+    deps: [26]
+    body: issues/28-del.md
+    test: cargo test --test paso_28
+    hints:
+      - "Para cada argumento desde el segundo, `remove` y contá los que devolvieron `Some`."
+  - id: 29
+    milestone: strings
+    title: "EXISTS"
+    labels: ["fácil", "strings"]
+    deps: [25]
+    body: issues/29-exists.md
+    test: cargo test --test paso_29
+    hints:
+      - "`args[1..].iter().filter(|k| mapa.contains_key(*k)).count()`."
+  - id: 30
+    milestone: strings
+    title: "DBSIZE"
+    labels: ["fácil", "strings"]
+    deps: [28]
+    body: issues/30-dbsize.md
+    test: cargo test --test paso_30
+    hints:
+      - "`HashMap::len`."
+  - id: 31
+    milestone: strings
+    title: "INCR y DECR"
+    labels: ["fácil", "strings"]
+    deps: [25]
+    body: issues/31-incr.md
+    test: cargo test --test paso_31
+    hints:
+      - "Leé el valor, convertilo con `parse::<i64>()`, sumá y guardá `n.to_string().into_bytes()`."
+      - "Escribí una sola función `incr_by(clave, delta)` y usala para `INCR` y `DECR`."
+  - id: 32
+    milestone: strings
+    title: "INCRBY y DECRBY"
+    labels: ["fácil", "strings"]
+    deps: [31]
+    body: issues/32-incrby.md
+    test: cargo test --test paso_32
+    hints:
+      - "Convertí el tercer argumento a `i64` y llamá a `incr_by`. Para `DECRBY`, negalo con `checked_neg`."
+  - id: 33
+    milestone: strings
+    title: "Errores de INCR"
+    labels: ["medio", "strings"]
+    deps: [32]
+    body: issues/33-errores-incr.md
+    test: cargo test --test paso_33
+    hints:
+      - "`i64::checked_add` devuelve `None` si se desborda."
+      - "Separá los dos errores: el de conversión (al leer el valor o el argumento) y el de la suma."
+  - id: 34
+    milestone: strings
+    title: "APPEND"
+    labels: ["fácil", "strings"]
+    deps: [25]
+    body: issues/34-append.md
+    test: cargo test --test paso_34
+    hints:
+      - "`HashMap::entry(clave).or_default()` te da un `&mut Vec<u8>` para hacer `extend_from_slice`."
+  - id: 35
+    milestone: strings
+    title: "STRLEN"
+    labels: ["fácil", "strings"]
+    deps: [25]
+    body: issues/35-strlen.md
+    test: cargo test --test paso_35
+    hints:
+      - "`Vec::len` sobre el valor."
+  - id: 36
+    milestone: strings
+    title: "MSET y MGET"
+    labels: ["fácil", "strings"]
+    deps: [26]
+    body: issues/36-mset-mget.md
+    test: cargo test --test paso_36
+    hints:
+      - "Validá que la cantidad de argumentos después del nombre sea par antes de escribir."
+      - "`args[1..].chunks(2)` te da los pares."
+  - id: 37
+    milestone: strings
+    title: "SET NX y XX"
+    labels: ["medio", "strings"]
+    deps: [26]
+    body: issues/37-set-nx-xx.md
+    test: cargo test --test paso_37
+    hints:
+      - "Recorré los argumentos desde el cuarto con un loop y anotá cada opción en una variable."
+      - "Antes de escribir: si `NX` y la clave existe, o `XX` y no existe, respondé nil."
+  - id: 38
+    milestone: strings
+    title: "SET con GET"
+    labels: ["fácil", "strings"]
+    deps: [37]
+    body: issues/38-set-get-opcion.md
+    test: cargo test --test paso_38
+    hints:
+      - "Guardá una copia del valor anterior antes de decidir si escribís."
+  - id: 39
+    milestone: strings
+    title: "Errores de sintaxis en SET"
+    labels: ["fácil", "strings"]
+    deps: [37]
+    body: issues/39-set-sintaxis.md
+    test: cargo test --test paso_39
+    hints:
+      - "En el loop de opciones, una opción desconocida o `XX` con `NX` ya puesto → `return` el error."
+  - id: 40
+    milestone: strings
+    title: "Patrones glob"
+    labels: ["medio", "algoritmos"]
+    deps: []
+    body: issues/40-glob.md
+    test: cargo test --test paso_40
+    hints:
+      - "Recorré patrón y texto con dos índices. `?` avanza los dos; un literal tiene que coincidir."
+      - "Para `*`: probá recursivamente el resto del patrón contra cada sufijo del texto."
+      - "Para `[`: leé hasta `]` y marcá si el carácter coincide con alguna opción o rango; `^` invierte."
+  - id: 41
+    milestone: strings
+    title: "KEYS"
+    labels: ["fácil", "strings"]
+    deps: [25, 40]
+    body: issues/41-keys.md
+    test: cargo test --test paso_41
+    hints:
+      - "Filtrá las claves del mapa con `glob_match` y devolvé un array de bulks."
+      - "En `keysCommand`, el patrón `*` solo no pasa por el glob."
+  - id: 42
+    milestone: expire
+    title: "SET con EX y PX"
+    labels: ["medio", "expiración"]
+    deps: [39]
+    body: issues/42-set-ex-px.md
+    test: cargo test --test paso_42
+    hints:
+      - "Cada entrada pasa a ser un struct con el valor y un `Option<u64>` con el vencimiento."
+      - "`SystemTime::now().duration_since(UNIX_EPOCH)` te da el ahora; sumale los ms de `PX` o los s de `EX` × 1000."
+      - "En `GET`, si el vencimiento ya pasó, borrá la clave y respondé nil."
+  - id: 43
+    milestone: expire
+    title: "Expiración pasiva"
+    labels: ["medio", "expiración"]
+    deps: [29, 37, 42]
+    body: issues/43-expiracion-pasiva.md
+    test: cargo test --test paso_43
+    hints:
+      - "Una función `lookup(clave)` que borra la clave si venció y devuelve `Option<&mut Entrada>`."
+      - "Usala en todos los comandos en vez de acceder al mapa directo."
+  - id: 44
+    milestone: expire
+    title: "Tiempos de vencimiento inválidos"
+    labels: ["fácil", "expiración"]
+    deps: [42]
+    body: issues/44-tiempos-invalidos.md
+    test: cargo test --test paso_44
+    hints:
+      - "Primero parseá todas las opciones (errores de sintaxis), después convertí el número, después validá que sea > 0."
+  - id: 45
+    milestone: expire
+    title: "EXPIRE y PEXPIRE"
+    labels: ["fácil", "expiración"]
+    deps: [42]
+    body: issues/45-expire.md
+    test: cargo test --test paso_45
+    hints:
+      - "Con la función `lookup` de la #43: si la clave existe, actualizá su vencimiento."
+  - id: 46
+    milestone: expire
+    title: "TTL y PTTL"
+    labels: ["fácil", "expiración"]
+    deps: [42]
+    body: issues/46-ttl.md
+    test: cargo test --test paso_46
+    hints:
+      - "Restá el ahora al vencimiento para obtener los ms que faltan."
+      - "Para segundos, Redis hace `(ms + 500) / 1000`."
+  - id: 47
+    milestone: expire
+    title: "PERSIST"
+    labels: ["fácil", "expiración"]
+    deps: [46]
+    body: issues/47-persist.md
+    test: cargo test --test paso_47
+    hints:
+      - "Si el vencimiento es `Some`, ponelo en `None` y respondé 1."
+  - id: 48
+    milestone: expire
+    title: "Vencimientos en el pasado"
+    labels: ["fácil", "expiración"]
+    deps: [29, 45]
+    body: issues/48-expire-pasado.md
+    test: cargo test --test paso_48
+    hints:
+      - "Si el instante calculado es <= ahora, borrá la clave en vez de guardar el vencimiento."
+  - id: 49
+    milestone: expire
+    title: "Expiración activa"
+    labels: ["difícil", "expiración", "concurrencia"]
+    deps: [30, 42]
+    body: issues/49-expiracion-activa.md
+    test: cargo test --test paso_49
+    hints:
+      - "Un hilo más, lanzado en `start`, que duerme 100 ms, toma el lock y hace una vuelta."
+      - "En cada vuelta: elegí hasta 20 claves con vencimiento, borrá las vencidas y repetí si borraste más del 10%."
+      - "Para elegir al azar sin crates alcanza un xorshift de 64 bits sobre un índice."
+  - id: 50
+    milestone: lists
+    title: "Crear una lista con RPUSH"
+    labels: ["fácil", "listas"]
+    deps: [25]
+    body: issues/50-rpush.md
+    test: cargo test --test paso_50
+    hints:
+      - "Un `enum` para el valor: `Str(Vec<u8>)` y `List(VecDeque<Vec<u8>>)`. Cada entrada del mapa guarda uno."
+      - "Al agregar `List`, el compilador te va a marcar cada `match` que asumía un string: es la lista de lugares a revisar."
+      - "`entry(clave).or_insert_with(...)` crea la lista vacía si no existe; después `push_back`."
+  - id: 51
+    milestone: lists
+    title: "Varios elementos de una vez"
+    labels: ["fácil", "listas"]
+    deps: [50]
+    body: issues/51-rpush-varios.md
+    test: cargo test --test paso_51
+    hints:
+      - "Recorré `args[2..]` y hacé `push_back` de cada uno."
+  - id: 52
+    milestone: lists
+    title: "LRANGE con índices positivos"
+    labels: ["fácil", "listas"]
+    deps: [51]
+    body: issues/52-lrange.md
+    test: cargo test --test paso_52
+    hints:
+      - "Convertí los índices a `i64` primero: después vas a necesitar negativos."
+      - "Recortá: si `inicio > fin` o `inicio >= largo`, vacío; si `fin >= largo`, `fin = largo - 1`."
+      - "`VecDeque::range(inicio..=fin)` te da un iterador sobre ese tramo."
+  - id: 53
+    milestone: lists
+    title: "LRANGE con índices negativos"
+    labels: ["medio", "listas"]
+    deps: [52]
+    body: issues/53-lrange-negativos.md
+    test: cargo test --test paso_53
+    hints:
+      - "Primero: si es negativo, sumale el largo. Después: si el inicio sigue negativo, ponelo en 0."
+      - "Recién después aplicá los recortes de la #52. Escribilo como una función: la vas a reusar en `LTRIM`."
+  - id: 54
+    milestone: lists
+    title: "LPUSH"
+    labels: ["fácil", "listas"]
+    deps: [52]
+    body: issues/54-lpush.md
+    test: cargo test --test paso_54
+    hints:
+      - "Lo mismo que `RPUSH` con `push_front`."
+  - id: 55
+    milestone: lists
+    title: "LLEN"
+    labels: ["fácil", "listas"]
+    deps: [51]
+    body: issues/55-llen.md
+    test: cargo test --test paso_55
+    hints:
+      - "`VecDeque::len`."
+  - id: 56
+    milestone: lists
+    title: "LINDEX"
+    labels: ["fácil", "listas"]
+    deps: [51]
+    body: issues/56-lindex.md
+    test: cargo test --test paso_56
+    hints:
+      - "Si el índice es negativo, sumale el largo; si después no está en `0..largo`, respondé nil."
+      - "`VecDeque::get(i)` devuelve `Option`."
+  - id: 57
+    milestone: lists
+    title: "LPOP y RPOP"
+    labels: ["fácil", "listas"]
+    deps: [52]
+    body: issues/57-lpop-rpop.md
+    test: cargo test --test paso_57
+    hints:
+      - "`pop_front` y `pop_back` devuelven `Option`: `None` es nil."
+  - id: 58
+    milestone: lists
+    title: "Sacar varios con COUNT"
+    labels: ["medio", "listas"]
+    deps: [57]
+    body: issues/58-pop-count.md
+    test: cargo test --test paso_58
+    hints:
+      - "Distinguí tres casos: sin cantidad (bulk o nil), con cantidad y clave inexistente (`NullArray`), con cantidad y lista."
+      - "Fijate que el mensaje de error es otro que el de siempre: no es \"not an integer\"."
+  - id: 59
+    milestone: lists
+    title: "Una lista vacía no existe"
+    labels: ["fácil", "listas"]
+    deps: [29, 58]
+    body: issues/59-lista-vacia.md
+    test: cargo test --test paso_59
+    hints:
+      - "Después de sacar, si `l.is_empty()`, borrá la clave del mapa."
+      - "Una función `borrar_si_vacia(clave)` que llamen todos los comandos que sacan."
+  - id: 60
+    milestone: lists
+    title: "TYPE"
+    labels: ["fácil", "listas"]
+    deps: [50]
+    body: issues/60-type.md
+    test: cargo test --test paso_60
+    hints:
+      - "Un método en tu `enum` de valores que devuelva el nombre."
+  - id: 61
+    milestone: lists
+    title: "WRONGTYPE"
+    labels: ["medio", "listas"]
+    deps: [38, 54, 55, 56, 57, 60]
+    body: issues/61-wrongtype.md
+    test: cargo test --test paso_61
+    hints:
+      - "Una función `lista(clave) -> Result<Option<&mut VecDeque<..>>, Error>` que da el error si la clave es de otro tipo."
+      - "Lo mismo para los strings: GET, APPEND, STRLEN, INCR y el GET de SET pasan por ahí."
+  - id: 62
+    milestone: lists
+    title: "LTRIM"
+    labels: ["medio", "listas"]
+    deps: [53, 59]
+    body: issues/62-ltrim.md
+    test: cargo test --test paso_62
+    hints:
+      - "Reusá la función que normaliza el rango. Con el rango `(s, e)`, `truncate(e + 1)` y después `drain(..s)`."
+      - "Si el rango es vacío, vaciá la lista y llamá a tu función de la #59."
+  - id: 63
+    milestone: lists
+    title: "BLPOP con elementos disponibles"
+    labels: ["medio", "listas"]
+    deps: [57, 61]
+    body: issues/63-blpop-disponible.md
+    test: cargo test --test paso_63
+    hints:
+      - "Los argumentos son `claves...` y el último es el timeout."
+      - "Recorré las claves en orden y usá lo de `LPOP` en la primera que tenga algo."
+  - id: 64
+    milestone: lists
+    title: "BLPOP que espera"
+    labels: ["difícil", "listas", "concurrencia"]
+    deps: [59, 63]
+    body: issues/64-blpop-espera.md
+    test: cargo test --test paso_64
+    hints:
+      - "Un `Condvar` junto al `Mutex` de la base: el que espera hace `wait`, el que escribe hace `notify_all`."
+      - "`Condvar::wait` suelta el lock mientras duerme y lo vuelve a tomar al despertar."
+      - "Al despertar, volvé a revisar las listas en un loop: el aviso no garantiza que el elemento siga ahí."
+  - id: 65
+    milestone: lists
+    title: "BLPOP con timeout"
+    labels: ["medio", "listas", "concurrencia"]
+    deps: [64]
+    body: issues/65-blpop-timeout.md
+    test: cargo test --test paso_65
+    hints:
+      - "Calculá un `Instant` límite al empezar; en cada vuelta, esperá con `wait_timeout` lo que falta."
+      - "`f64` para el timeout, `Duration::from_secs_f64` para convertirlo, y `0` como \"sin límite\"."
+  - id: 66
+    milestone: lists
+    title: "Varios clientes esperando"
+    labels: ["difícil", "listas", "concurrencia"]
+    deps: [65]
+    body: issues/66-blpop-fifo.md
+    test: cargo test --test paso_66
+    hints:
+      - "Por cada clave, una cola (`VecDeque`) con un id por cliente bloqueado, en orden de llegada."
+      - "Al despertar, un cliente solo saca de una lista si es el primero de la fila de esa clave."
+      - "Cuando un cliente termina (por elemento o por timeout), sacalo de todas sus filas y hacé `notify_all` para que avance el siguiente."

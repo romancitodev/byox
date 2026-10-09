@@ -1,0 +1,39 @@
+# Curso escrito a mano. Esto es una plantilla que anda: cambiala por tu curso.
+# El formato completo está en `byox guide`. Cada push a este repo lo verifica:
+# con files/ todos los tests tienen que fallar y con files/ + solution/ pasar.
+# Mirá cómo quedó con `byox check`.
+
+title: {{TITLE}}
+description: Un contador de palabras en JavaScript, de contar a la tabla de frecuencias.
+image: node:22-bookworm     # imagen donde corren los tests: necesita sh y git (las -slim no traen git)
+topics: [javascript, node]
+origin: human               # lo armó una persona; los cursos de la IA dicen "ai"
+author: {{AUTHOR}}
+
+milestones:                 # en el orden en que se muestran
+  - id: base
+    title: Contar
+    description: De un texto a números.
+
+issues:                     # ids de 1 a N, en orden: es el número del issue en Forgejo
+  - id: 1
+    milestone: base
+    title: Contar palabras
+    labels: [fácil]
+    deps: []                # issues que tienen que estar cerrados antes
+    body: issues/01-contar.md
+    test: node --test tests/paso_01.test.js
+    hints:                  # de la más conceptual a la más concreta
+      - "¿Qué separa una palabra de la otra? Puede ser más de un espacio, un tab o un salto de línea."
+      - "`text.split(/\\s+/)` parte por espacios en blanco, pero ojo con lo que queda vacío al principio y al final."
+  - id: 2
+    milestone: base
+    title: Frecuencias
+    labels: [fácil]
+    deps: [1]
+    body: issues/02-frecuencias.md
+    test: node --test tests/paso_02.test.js
+    hints:
+      - "Reusá lo que hiciste en #1 para partir el texto."
+      - "Un `Map` o un objeto que arranca vacío y suma 1 por palabra."
+      - "`toLowerCase()` antes de usar la palabra como clave."

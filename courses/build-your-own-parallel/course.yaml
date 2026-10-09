@@ -1,0 +1,202 @@
+title: build-your-own-parallel
+description: "Reducción, scan, odd-even y merge sort en paralelo, reescritos en Rust paso a paso."
+image: rust:1.99
+topics: ["rust","paralelismo","concurrencia","borrow-checker","seminario"]
+
+milestones:
+  - id: prep
+    title: "Preparación"
+    description: "El crate, un generador de números y una forma de medir que no mienta."
+  - id: red
+    title: "Reducción"
+    description: "Partir sin copiar, hilos con alcance y cualquier operación asociativa con su neutro."
+  - id: scan
+    title: "Scan"
+    description: "Scan en el lugar, por bloques y con Hillis-Steele. Acá aparece el bug del 3d, y el compilador lo frena."
+  - id: oe
+    title: "Odd-Even Sort"
+    description: "Fases que no se pisan, barreras implícitas y explícitas, y atómicos."
+  - id: ms
+    title: "Merge sort"
+    description: "Merge sin alocar, el árbol de merges del 8 y el pivote del 7 para destrabar la última ronda."
+  - id: bonus
+    title: "Bonus: rayon"
+    description: "Lo mismo, pero con una biblioteca que reparte el trabajo por vos."
+
+issues:
+  - id: 1
+    milestone: prep
+    title: "Armar el crate y una forma de medir"
+    labels: ["fácil","setup"]
+    deps: []
+    body: issues/01-armar-el-crate-y-una-forma-de-medir.md
+    test: cargo test --test paso_01
+    hints:
+      - "Si la semilla es 0, reemplazala por cualquier constante distinta de cero. Un xorshift con estado distinto de cero nunca vuelve a 0."
+      - "`std::hint::black_box(valor)` le dice al compilador que no puede asumir nada sobre ese valor, así que no puede borrar el cálculo que lo produjo."
+      - "`let t = Instant::now(); ...; t.elapsed()` y te quedás con el mínimo. El mínimo es la corrida con menos ruido del sistema operativo."
+  - id: 2
+    milestone: red
+    title: "Partir el arreglo sin copiar"
+    labels: ["fácil","lifetimes"]
+    deps: [1]
+    body: issues/02-partir-el-arreglo-sin-copiar.md
+    test: cargo test --test paso_02
+    hints:
+      - "Mirá los métodos de `[T]` que empiezan con `chunks`."
+      - "`chunks(0)` entra en pánico, así que el tamaño tiene que ser al menos 1 aunque el arreglo esté vacío."
+      - "Por las reglas de elisión, tu firma es lo mismo que `fn slice<'a>(a: &'a [i64], p: usize) -> Vec<&'a [i64]>`: los pedazos viven lo mismo que `a`."
+  - id: 3
+    milestone: red
+    title: "Reducción con hilos (y la primera pelea con lifetimes)"
+    labels: ["fácil","hilos","lifetimes"]
+    deps: [2]
+    body: issues/03-reduccion-con-hilos-y-la-primera-pelea-c.md
+    test: cargo test --test paso_03
+    hints:
+      - "`spawn` exige `'static` porque el hilo podría seguir vivo cuando `a` ya no existe. Necesitás una forma de prometer que todos los hilos terminan antes de que la función devuelva."
+      - "Buscá `std::thread::scope`. Los hilos creados adentro pueden tomar prestado lo que vive afuera, porque el scope no termina hasta que terminan todos."
+      - "Guardá los handles en un `Vec` en el mismo orden que los pedazos y hacé `join` en ese orden. El orden ya lo tenés, no hace falta idx."
+  - id: 4
+    milestone: red
+    title: "Cualquier operación asociativa, con su neutro"
+    labels: ["medio","traits"]
+    deps: [3]
+    body: issues/04-cualquier-operacion-asociativa-con-su-ne.md
+    test: cargo test --test paso_04
+    hints:
+      - "Empezá sin bounds y dejá que el compilador te los pida de a uno. Anotá cada uno y por qué lo pide."
+      - "Compartir `&T` entre hilos requiere `T: Sync`. Devolver un `T` desde un hilo requiere `T: Send`."
+      - "A `F` le falta `+ Sync`: los hilos comparten una `&F`. Y pensá por qué la firma dice `Fn` y no `FnMut`."
+  - id: 5
+    milestone: red
+    title: "Medir: ¿ahora sí hay speedup?"
+    labels: ["medición"]
+    deps: [3]
+    body: issues/05-medir-ahora-si-hay-speedup.md
+    test: |
+      cargo run --release --example reduccion > /tmp/reduccion.txt
+      cat /tmp/reduccion.txt
+      for n in 1000 1000000 50000000; do grep -Eq "^ *$n " /tmp/reduccion.txt; done
+      test "$(grep -oE '\([0-9]+\.[0-9]+x\)' /tmp/reduccion.txt | wc -l)" -ge 12
+    hints:
+      - "`std::thread::available_parallelism()` te dice cuántos hilos puede correr la máquina a la vez."
+      - "Sumar es tan barato que el límite pasa a ser leer memoria, y el ancho de banda de la RAM es uno solo para todos los cores."
+      - "Crear un hilo cuesta microsegundos. Con n chico, eso es más que toda la suma."
+  - id: 6
+    milestone: scan
+    title: "Scan secuencial en el lugar"
+    labels: ["fácil"]
+    deps: [1]
+    body: issues/06-scan-secuencial-en-el-lugar.md
+    test: cargo test --test paso_06
+    hints:
+      - "Para el exclusivo llevá un acumulador aparte, no lo leas del arreglo."
+      - "En cada posición: guardás el valor original, escribís el acumulado y después le sumás el original al acumulado."
+      - "`std::mem::replace(&mut a[i], acc)` escribe `acc` y te devuelve el valor viejo en una sola operación."
+  - id: 7
+    milestone: scan
+    title: "Scan por bloques sin copiar nada"
+    labels: ["medio","hilos"]
+    deps: [2,6]
+    body: issues/07-scan-por-bloques-sin-copiar-nada.md
+    test: cargo test --test paso_07
+    hints:
+      - "`chunks_mut` te da pedazos que no se superponen. Rust lo sabe, y por eso te deja moverlos a hilos distintos."
+      - "Adentro de cada hilo podés usar tu `inclusive_scan` del #6. El total es el último elemento del pedazo."
+      - "Dos `thread::scope` seguidos, uno para la fase 1 y otro para la 3. El final de cada scope es la barrera."
+  - id: 8
+    milestone: scan
+    title: "Hillis-Steele y el bug del 3d"
+    labels: ["medio","borrow checker"]
+    deps: [7]
+    body: issues/08-hillis-steele-y-el-bug-del-3d.md
+    test: cargo test --test paso_08
+    hints:
+      - "El hilo que escribe `a[i]` necesita leer `a[i - stride]`, que puede caer en el pedazo de otro hilo. Rust no te deja tener `&mut` a tu pedazo y `&` a un pedazo ajeno del mismo slice al mismo tiempo."
+      - "Dos buffers: `prev`, de solo lectura y compartido por todos, y `next`, partido con `chunks_mut`. Al terminar el paso, `std::mem::swap(&mut prev, &mut next)`."
+      - "Cada hilo necesita saber en qué índice global arranca su pedazo de `next` para calcular `i - stride`. `chunks_mut(...).enumerate()` te da el número de pedazo."
+  - id: 9
+    milestone: oe
+    title: "Odd-Even secuencial con estadísticas"
+    labels: ["fácil"]
+    deps: [1]
+    body: issues/09-odd-even-secuencial-con-estadisticas.md
+    test: cargo test --test paso_09
+    hints:
+      - "Ojo con `n - 1` cuando `n` es 0: en `usize` eso no da -1, entra en pánico. Comparar `i + 1 < n` te evita el problema."
+      - "Para `sorted_at_phase`, después de cada fase chequeá `a.windows(2).all(|w| w[0] <= w[1])`, pero solo mientras no lo hayas encontrado."
+  - id: 10
+    milestone: oe
+    title: "Odd-Even paralelo: una fase, un scope"
+    labels: ["medio","borrow checker"]
+    deps: [9,7]
+    body: issues/10-odd-even-paralelo-una-fase-un-scope.md
+    test: cargo test --test paso_10
+    hints:
+      - "`a[start..].chunks_exact_mut(2)`."
+      - "Partí `a[start..]` en bloques de `2 * k` con `chunks_mut`, uno por hilo, y adentro de cada bloque usá `chunks_exact_mut(2)`. Como `2 * k` es par, ningún par queda cortado entre dos hilos."
+      - "Un `thread::scope` por fase. Cuando el scope termina, terminaron todos los hilos: esa es la barrera."
+  - id: 11
+    milestone: oe
+    title: "Hilos que viven toda la ordenación"
+    labels: ["difícil","atómicos"]
+    deps: [10]
+    body: issues/11-hilos-que-viven-toda-la-ordenacion.md
+    test: cargo test --test paso_11
+    hints:
+      - "No hay forma segura de repartir `&mut` que cambian de forma en cada fase. Pasá el arreglo a un `Vec<AtomicI64>` y al final copialo de vuelta."
+      - "`BarrierWaitResult::is_leader()` es verdadero para un solo hilo en cada espera. Que ese hilo cuente las fases y chequee si ya quedó ordenado."
+      - "La barrera ya sincroniza la memoria entre fases, así que `Ordering::Relaxed` alcanza. Para decidir si cortar, usá un contador por hilo y el mismo truco de dos barreras que hiciste en Python: todos leen la suma, barrera, y recién ahí cada uno resetea el suyo."
+  - id: 12
+    milestone: ms
+    title: "Merge de dos punteros, sin alocar"
+    labels: ["fácil"]
+    deps: [1]
+    body: issues/12-merge-de-dos-punteros-sin-alocar.md
+    test: cargo test --test paso_12
+    hints:
+      - "Un `assert_eq!` al principio para el largo."
+      - "`out[k..].copy_from_slice(&b[j..])` copia un slice entero de una vez."
+  - id: 13
+    milestone: ms
+    title: "Merge sort paralelo como en el 8"
+    labels: ["difícil","borrow checker"]
+    deps: [12,7]
+    body: issues/13-merge-sort-paralelo-como-en-el-8.md
+    test: cargo test --test paso_13
+    hints:
+      - "Un buffer auxiliar del mismo tamaño, y en cada ronda alternás cuál es origen y cuál destino (ping-pong)."
+      - "Guardá los límites de los pedazos ordenados en un `Vec<usize>`. Para partir el destino en rangos de distinto tamaño, usá `split_at_mut` en un loop, quedándote con la parte de la derecha para el siguiente."
+      - "El pedazo que sobra se copia tal cual al destino con `copy_from_slice`. Si el resultado quedó en el auxiliar, copialo de vuelta a `a` al final."
+  - id: 14
+    milestone: ms
+    title: "Merge por rango con partition_point"
+    labels: ["medio"]
+    deps: [12]
+    body: issues/14-merge-por-rango-con-partition-point.md
+    test: cargo test --test paso_14
+    hints:
+      - "`b.partition_point(|&y| y < x)` cuenta cuántos de `b` son menores que `x`."
+      - "Para paralelizarlo sin `unsafe`, cada hilo puede devolver pares `(posición, valor)` y el principal los coloca. O lo podés pensar al revés: para cada posición de salida, ¿qué elemento va ahí? Esa idea te lleva al issue siguiente."
+  - id: 15
+    milestone: ms
+    title: "Merge paralelo con pivote (arreglar el 8c)"
+    labels: ["difícil"]
+    deps: [13,14]
+    body: issues/15-merge-paralelo-con-pivote-arreglar-el-8c.md
+    test: cargo test --test paso_15
+    hints:
+      - "`i` va de `k.saturating_sub(b.len())` a `k.min(a.len())`. Buscalo con búsqueda binaria."
+      - "El corte es válido si `a[i-1] <= b[j]` y `b[j-1] < a[i]` (cada comparación, solo si los índices existen). La asimetría `<=` contra `<` es el desempate del 7b."
+      - "Con los `p + 1` cortes, partí `out` con `split_at_mut` como en el #13 y llamá a `merge` en cada hilo con `&a[i0..i1]` y `&b[j0..j1]`."
+  - id: 16
+    milestone: bonus
+    title: "Lo mismo, pero con rayon"
+    labels: ["bonus","medición"]
+    deps: [4,13]
+    body: issues/16-lo-mismo-pero-con-rayon.md
+    test: cargo test --test paso_16
+    hints:
+      - "En rayon, `reduce` recibe primero una closure que fabrica el neutro y después la operación. Rayon decide cuántos acumuladores crear, por eso necesita poder fabricar neutros."
+      - "Partí con `split_at_mut`, ordená las dos mitades con `rayon::join`, y fusioná en un buffer. Por debajo de unos pocos miles de elementos, `sort_unstable` directo es más rápido que seguir partiendo."

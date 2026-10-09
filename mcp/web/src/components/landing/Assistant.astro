@@ -1,0 +1,24 @@
+---
+// Una sesión de Claude Code creando un curso con las herramientas del MCP de byox.
+// landing.js la escribe línea por línea cuando entra en pantalla.
+import { tr } from "../../lib/landing-i18n.js";
+const { course, lang = "es" } = Astro.props;
+const t = tr(lang).assist;
+const n = course.issues.length;
+const steps = t.steps(n, course.slug);
+---
+
+<div class="assist" data-assist>
+  <div class="assist-bar"><span class="dots"><i></i><i></i><i></i></span><span>Claude Code</span><span class="grow"></span><span class="mono">byox · MCP</span></div>
+  <div class="assist-body">
+    <p class="prompt" data-line><span class="caret-in">›</span> <span data-type={t.prompt(n)}></span></p>
+    {steps.map((s) => (
+      <p class="call" data-line>
+        <span class="dot"></span><code>{s.tool}</code><span class="detail">{s.detail}</span><span class="ok">✓</span>
+      </p>
+    ))}
+    <p class="answer" data-line>
+      <Fragment set:html={t.answer(course.title, n, course.milestones.length)} />
+    </p>
+  </div>
+</div>

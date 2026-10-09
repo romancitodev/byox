@@ -1,0 +1,70 @@
+---
+// La vista de un curso, como en la app, con la etapa del demo a punto de cerrarse.
+// landing.js la anima: test que falla, test que pasa, push, CI y la etapa que se cierra.
+import { demoScene } from "../../lib/sample.js";
+import { tr } from "../../lib/landing-i18n.js";
+
+const { course, lang = "es" } = Astro.props;
+const t = tr(lang).demo;
+const scene = demoScene(course);
+const { cur, opens, before } = scene;
+const ms = course.milestones.find((m) => m.id === cur.milestone);
+const doneBefore = Object.values(before).filter((s) => s === "done").length;
+const total = course.issues.length;
+const msRows = course.milestones.map((m) => {
+  const list = course.issues.filter((i) => i.milestone === m.id);
+  return { m, list, done: list.filter((i) => before[i.n] === "done").length, open: m.id === cur.milestone };
+});
+---
+
+<div class="demo" data-demo data-after={JSON.stringify(scene.after)} data-cur={cur.n} aria-label={t.aria(cur.n, course.title)} role="img">
+  <div class="demo-bar">
+    <span class="dots"><i></i><i></i><i></i></span>
+    <span class="crumbs">{t.courses} <b>›</b> {course.title} <b>›</b> <span class="cur">#{cur.n}</span></span>
+    <span class="grow"></span>
+    <span class="chip run" data-run><span class="led"></span><span data-run-text>{t.upToDate}</span></span>
+  </div>
+  <div class="demo-body">
+    <nav class="demo-rail">
+      <div class="segs" data-segs>
+        {course.issues.map((i) => <i class={`${before[i.n]}${i.n === cur.n ? " cur" : ""}`} data-seg={i.n}></i>)}
+      </div>
+      <div class="rail-count"><span data-count>{doneBefore}</span> {t.of} {total} {t.stages} · <span class="mono">{course.image}</span></div>
+      <ol>
+        {msRows.map(({ m, list, done, open }) => (
+          <>
+            <li class="ms"><span>{m.title}</span><span class="n">{done}/{list.length}</span></li>
+            {open &&
+              list.map((i) => (
+                <li class={`st ${before[i.n]}${i.n === cur.n ? " cur" : ""}`} data-stage={i.n}>
+                  <span class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></svg></span>
+                  <span class="sn">{i.n}</span>
+                  <span class="tt">{i.title}</span>
+                </li>
+              ))}
+          </>
+        ))}
+      </ol>
+    </nav>
+    <div class="demo-main">
+      <h3><span class="num">#{cur.n}</span>{cur.title}</h3>
+      <div class="props">
+        <span class="badge ready" data-badge>{t.available}</span>
+        <span class="p">{ms?.title}</span>
+        {cur.deps.length > 0 && <span class="p">{t.requires} {cur.deps.map((d) => `#${d}`).join(` ${tr(lang).and} `)}</span>}
+      </div>
+      <div class="lines" aria-hidden="true"><i style="width:92%"></i><i style="width:78%"></i><i style="width:85%"></i><i style="width:40%"></i></div>
+      <div class="term">
+        <div class="term-h"><span>{t.terminal}</span><span class="mono">~/{course.slug}</span></div>
+        <pre data-term></pre>
+      </div>
+    </div>
+    <div class="done-card" data-done-card>
+      <div class="ingot"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m9 12 2 2 4-4" /></svg></div>
+      <b>{t.stageDone}</b>
+      <span>#{cur.n} {cur.title}</span>
+      {opens.length > 0 && <div class="unl">{opens.length > 1 ? t.unlockedMany : t.unlockedOne} {opens.map((o) => <em>#{o.n} {o.title}</em>)}</div>}
+    </div>
+  </div>
+  <script type="application/json" data-script set:html={JSON.stringify({ n: cur.n, test: cur.test, image: course.image })} />
+</div>

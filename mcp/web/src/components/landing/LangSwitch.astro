@@ -1,0 +1,18 @@
+---
+// Selector de idioma «ES · EN»: el idioma activo va resaltado y el otro enlaza a su versión.
+import { locales, tr } from "../../lib/landing-i18n.js";
+const { lang = "es", class: cls = "" } = Astro.props;
+const t = tr(lang);
+---
+<div class={`l-lang ${cls}`.trim()} role="group" aria-label={t.switcherLabel}>
+  {locales.map((l, k) => (
+    <>
+      {k > 0 && <span class="sep" aria-hidden="true">·</span>}
+      {l.lang === lang ? (
+        <span class="on" lang={l.lang} aria-current="true" title={l.name}>{l.label}</span>
+      ) : (
+        <a href={l.href} lang={l.lang} hreflang={l.lang} title={l.name}>{l.label}</a>
+      )}
+    </>
+  ))}
+</div>

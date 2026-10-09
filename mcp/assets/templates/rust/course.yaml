@@ -1,0 +1,41 @@
+# Curso escrito a mano. Esto es una plantilla que anda: cambiala por tu curso.
+# El formato completo está en `byox guide`. Cada push a este repo lo verifica:
+# con files/ todos los tests tienen que fallar y con files/ + solution/ pasar.
+# Mirá cómo quedó con `byox check`.
+
+title: {{TITLE}}
+description: Un contador de palabras en Rust, de contar a la tabla de frecuencias.
+image: rust:1.99            # imagen donde corren los tests: necesita sh y git
+topics: [rust]
+origin: human               # lo armó una persona; los cursos de la IA dicen "ai"
+author: {{AUTHOR}}
+
+milestones:                 # en el orden en que se muestran
+  - id: base
+    title: Contar
+    description: De un texto a números.
+
+issues:                     # ids de 1 a N, en orden: es el número del issue en Forgejo
+  - id: 1
+    milestone: base
+    title: Contar palabras
+    labels: [fácil]
+    deps: []                # issues que tienen que estar cerrados antes
+    body: issues/01-contar.md
+    # Un archivo de tests/ por paso: cada uno compila aparte, así el #1 no
+    # depende de que el #2 esté hecho.
+    test: cargo test --test paso_01
+    hints:                  # de la más conceptual a la más concreta
+      - "¿Qué separa una palabra de la otra? Puede ser más de un espacio, un tab o un salto de línea."
+      - "`str::split_whitespace` ya parte por cualquier cantidad de espacios en blanco."
+  - id: 2
+    milestone: base
+    title: Frecuencias
+    labels: [fácil]
+    deps: [1]
+    body: issues/02-frecuencias.md
+    test: cargo test --test paso_02
+    hints:
+      - "Reusá lo que hiciste en #1 para partir el texto."
+      - "Un `HashMap` que arranca vacío; `entry(palabra).or_insert(0)` te da dónde sumar."
+      - "`to_lowercase()` antes de usar la palabra como clave."

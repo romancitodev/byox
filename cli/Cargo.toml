@@ -1,0 +1,20 @@
+[package]
+name = "byox"
+version = "0.2.0"
+edition = "2024"
+description = "CLI de byox: tus cursos, tests y pistas desde la terminal"
+license = "AGPL-3.0-or-later"
+
+[dependencies]
+anstream = "0.6"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+enable-ansi-support = "0.2"
+owo-colors = "4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2", features = ["json"] }
+
+[profile.release]
+strip = true
+lto = true
