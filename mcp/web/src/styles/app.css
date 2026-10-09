@@ -1121,3 +1121,12 @@ details.log pre .hl, .logbox .hl { color: var(--ink); }
 .side-label { white-space: nowrap; overflow: hidden; min-width: 0; height: 16px; box-sizing: border-box; }
 .shell.slim .side-label { visibility: visible; height: 16px; margin: 18px 8px 6px; font-size: 0; gap: 0; }
 .shell.slim .side-label::after { display: block; }
+
+/* Relieve: las tarjetas usan --card (en oscuro, un escalón por encima del fondo de la página) y la página
+   recibe un leve resplandor de la marca arriba. En claro --card es blanco y los dos tokens no pintan nada. */
+.content { background-image: var(--page-glow); background-repeat: no-repeat; }
+.card, .ccard, .page-link, .verify, .hint { background-color: var(--card); }
+.resume { background-color: var(--card); background-image: var(--glow-card); }
+.ccard:hover { background-color: var(--raised); }
+.resume-main:hover { background: transparent; }
+.hint-h, .verify-h, .sm-head, .card-h { background: var(--sunk); }

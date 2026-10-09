@@ -7,6 +7,7 @@
   --ember: #e5560b; --ember-ink: #c2410c; --ember-wash: #fff4ed;
   /* Fondo del botón primario: en claro, un naranja más profundo para que el texto blanco pase AA (5.2:1; sobre --ember daba 3.7:1) */
   --ember-btn: #c2410c; --ember-btn-hover: #b03a0a; --ember-btn-line: #a63709; --on-ember: #fff;
+  --card: #ffffff; --page-glow: none; --glow-card: none;
   --done: #16a34a; --done-wash: #ecfdf3;
   --warn: #ca8a04; --bad: #dc2626;
   --lock: #a8a8b2;
@@ -25,7 +26,7 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #09090b; --surface: #121214; --raised: #1a1a1e; --sunk: #0e0e10; --hover: #212126; --line: #2a2a30; --line-soft: #1e1e23; --line-strong: #44444d;
+    --paper: #09090b; --surface: #111114; --card: #18181d; --raised: #1f1f25; --sunk: #0c0c0f; --hover: #24242b; --line: #2d2d35; --line-soft: #212127; --line-strong: #494954;
     --ink: #f0f0f2; --ink-2: #b0b0b8; --ink-3: #8c8c96;
     --ember: #f9732f; --ember-ink: #fb8c4f; --ember-wash: rgba(249, 115, 47, .12);
     --ember-btn: #f9732f; --ember-btn-hover: #fb8c4f; --ember-btn-line: #fb8c4f; --on-ember: #1a0a02;
@@ -35,14 +36,15 @@
     --code: #101012; --term: #0a0a0c; --term-ink: #e4e4e7;
     --c-k: #fb8c4f; --c-t: #5ec4d6; --c-s: #7ed99a; --c-c: #85858e; --c-n: #b69cff; --c-f: #7aa7ff;
     --overlay: 0 0 0 1px var(--line), 0 24px 60px -20px rgba(0, 0, 0, .9);
-    --sh-1: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.4);
+    --sh-1: 0 1px 0 rgba(255,255,255,.065) inset, 0 1px 2px rgba(0,0,0,.5);
+    --page-glow: radial-gradient(60% 260px at 50% -40px, rgba(249, 115, 47, .085), transparent 72%); --glow-card: linear-gradient(135deg, rgba(249, 115, 47, .10), transparent 58%);
   --sh-2: 0 1px 2px rgba(0,0,0,.5), 0 8px 22px -8px rgba(0,0,0,.6);
   --grid-dot: rgba(255,255,255,.05);
   color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #09090b; --surface: #121214; --raised: #1a1a1e; --sunk: #0e0e10; --hover: #212126; --line: #2a2a30; --line-soft: #1e1e23; --line-strong: #44444d;
+  --paper: #09090b; --surface: #111114; --card: #18181d; --raised: #1f1f25; --sunk: #0c0c0f; --hover: #24242b; --line: #2d2d35; --line-soft: #212127; --line-strong: #494954;
   --ink: #f0f0f2; --ink-2: #b0b0b8; --ink-3: #8c8c96;
   --ember: #f9732f; --ember-ink: #fb8c4f; --ember-wash: rgba(249, 115, 47, .12);
   --ember-btn: #f9732f; --ember-btn-hover: #fb8c4f; --ember-btn-line: #fb8c4f; --on-ember: #1a0a02;
@@ -52,7 +54,8 @@
   --code: #101012; --term: #0a0a0c; --term-ink: #e4e4e7;
   --c-k: #fb8c4f; --c-t: #5ec4d6; --c-s: #7ed99a; --c-c: #85858e; --c-n: #b69cff; --c-f: #7aa7ff;
   --overlay: 0 0 0 1px var(--line), 0 24px 60px -20px rgba(0, 0, 0, .9);
-  --sh-1: 0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.4);
+  --sh-1: 0 1px 0 rgba(255,255,255,.065) inset, 0 1px 2px rgba(0,0,0,.5);
+  --page-glow: radial-gradient(60% 260px at 50% -40px, rgba(249, 115, 47, .085), transparent 72%); --glow-card: linear-gradient(135deg, rgba(249, 115, 47, .10), transparent 58%);
   --sh-2: 0 1px 2px rgba(0,0,0,.5), 0 8px 22px -8px rgba(0,0,0,.6);
   --grid-dot: rgba(255,255,255,.05);
   color-scheme: dark;
