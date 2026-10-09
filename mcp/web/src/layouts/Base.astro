@@ -8,8 +8,21 @@ interface Props {
   lang?: "es" | "en";
   /** Versiones de la misma página en otros idiomas: [{ lang, href }]. Pinta los <link rel="alternate" hreflang>. */
   alternates?: { lang: string; href: string }[];
+  /** Imagen de vista previa (1200x630) al compartir el enlace, relativa a public/. Por defecto, la del idioma. */
+  image?: string;
+  /** Texto alternativo de esa imagen. */
+  imageAlt?: string;
 }
-const { title = "byox", description = "Construí herramientas reales desde cero. Cada etapa es un test, y cada push te dice si está bien.", lang = "es", alternates = [] } = Astro.props;
+const {
+  title = "byox",
+  description = "Construí herramientas reales desde cero. Cada etapa es un test, y cada push te dice si está bien.",
+  lang = "es",
+  alternates = [],
+  image = `/og/og-${lang}.png`,
+  imageAlt = lang === "en"
+    ? "byox: build your own X, test by test. A graph of stages with two completed and one in progress."
+    : "byox: construye tu propio X, test por test. Un grafo de etapas con dos terminadas y una en curso.",
+} = Astro.props;
 const locale = lang === "en" ? "en_US" : "es_ES";
 // hreflang pide URL absolutas: se usan si el sitio tiene `site` configurado; si no, las rutas relativas.
 const abs = (href: string) => (Astro.site ? new URL(href, Astro.site).href : href);
@@ -24,7 +37,19 @@ const abs = (href: string) => (Astro.site ? new URL(href, Astro.site).href : hre
     <meta name="description" content={description} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="byox" />
     <meta property="og:locale" content={locale} />
+    <meta property="og:image" content={abs(image)} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={imageAlt} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={abs(image)} />
+    <meta name="twitter:image:alt" content={imageAlt} />
     {alternates.filter((a) => a.lang !== lang).map((a) => <meta property="og:locale:alternate" content={a.lang === "en" ? "en_US" : "es_ES"} />)}
     {alternates.map((a) => <link rel="alternate" hreflang={a.lang} href={abs(a.href)} />)}
     {alternates.length > 0 && <link rel="alternate" hreflang="x-default" href={abs(alternates[0].href)} />}

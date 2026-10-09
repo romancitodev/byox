@@ -21,7 +21,12 @@ const isHome = page.slug === "index";
 const fullTitle = isHome ? "Documentación · byox" : `${title} · Documentación · byox`;
 ---
 
-<Base title={fullTitle} description={description ?? "Documentación de byox: instalación, configuración, cuentas, producción y referencia."}>
+<Base
+  title={fullTitle}
+  description={description ?? "Documentación de byox: instalación, configuración, cuentas, producción y referencia."}
+  image="/og/og-docs.png"
+  imageAlt="Documentación de byox: instala, configura y opera byox en tu propio servidor."
+>
   <script is:inline>document.documentElement.dataset.theme = "dark";</script>
 
   <header class="l-nav v2-nav docs-nav">
