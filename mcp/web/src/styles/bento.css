@@ -70,7 +70,7 @@
 .b-pill .sp { position: absolute; left: 36px; top: 50%; width: 4px; height: 4px; border-radius: 50%; background: var(--done); opacity: 0; }
 [data-t="1"] .b-pill .sp { animation: burst8 .6s ease-out; }
 @keyframes burst8 { 0% { opacity: 1; transform: translate(0, 0); } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)); } }
-.b-next { height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 8px; background: var(--ember); color: #fff; font-size: 13px; font-weight: 600; margin-left: 14px; opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s; }
+.b-next { height: 32px; display: inline-flex; align-items: center; padding: 0 14px; border-radius: 8px; background: var(--ember-btn); color: var(--on-ember); font-size: 13px; font-weight: 600; margin-left: 14px; opacity: 0; transform: translateY(8px); transition: opacity .3s, transform .3s; }
 [data-t="1"] .b-next { opacity: 1; transform: none; transition-delay: .15s; }
 
 /* ---------- err ---------- */

@@ -16,8 +16,8 @@
 .q-btn.on svg { display: none; }
 .q-btn.on { border-color: var(--ember); color: var(--ember-ink); }
 .q-btn.ghost { background: transparent; color: var(--ink-2); }
-.q-btn.primary { width: 100%; height: 40px; background: var(--ember); border-color: var(--ember); color: #fff; font-weight: 600; box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--ember) 70%, transparent); }
-.q-btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--ember) 90%, #fff); }
+.q-btn.primary { width: 100%; height: 40px; background: var(--ember-btn); border-color: var(--ember-btn-line); color: var(--on-ember); font-weight: 600; box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--ember) 70%, transparent); }
+.q-btn.primary:hover:not(:disabled) { background: var(--ember-btn-hover); }
 .q-btn.primary:disabled { background: var(--sunk); border-color: var(--line); color: var(--ink-3); box-shadow: none; cursor: not-allowed; }
 
 .quest-body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; }

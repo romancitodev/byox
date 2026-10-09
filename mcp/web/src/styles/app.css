@@ -700,7 +700,7 @@ span.ok svg, span.warn svg, span.bad svg { width: 14px; height: 14px; }
 .sm-jump > div { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .sm-jump em { margin-left: auto; color: var(--ink-3); font-style: normal; font-size: 12px; }
 .sm-jump .chip { height: 24px; padding: 0 9px; border: 1px solid color-mix(in srgb, var(--ember) 45%, var(--line)); border-radius: 6px; background: var(--ember-wash); color: var(--ember-ink); font: 500 12px var(--mono); }
-.sm-jump .chip:hover, .sm-jump .chip.sel { background: var(--ember); border-color: var(--ember); color: #fff; }
+.sm-jump .chip:hover, .sm-jump .chip.sel { background: var(--ember-btn); border-color: var(--ember-btn-line); color: var(--on-ember); }
 .sm-jump em + em { margin-left: 0; }
 @media (max-width: 700px) { .sm-jump em { display: none; } }
 
@@ -917,10 +917,8 @@ body { background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px); 
 .btn { border-color: var(--line-strong); box-shadow: var(--sh-1); transition: background .12s, border-color .12s, transform .08s, box-shadow .12s; }
 .btn:hover { background: var(--sunk); border-color: color-mix(in srgb, var(--ink) 40%, var(--line-strong)); }
 .btn:active { transform: translateY(1px); box-shadow: none; }
-.btn.primary { background: var(--ember-btn); border-color: var(--ember-btn-line); color: #fff; font-weight: 600; box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 1px 2px rgba(0,0,0,.2); }
+.btn.primary { background: var(--ember-btn); border-color: var(--ember-btn-line); color: var(--on-ember); font-weight: 600; box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 1px 2px rgba(0,0,0,.2); }
 .btn.primary:hover { opacity: 1; background: var(--ember-btn-hover); }
-:root[data-theme="dark"] .btn.primary { color: #1a0a02; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #1a0a02; } }
 .btn:focus-visible, .chip:focus-visible, .icon-btn:focus-visible, .tab:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ember); }
 .btn[disabled], .btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; transform: none; }
 .chip { border-color: var(--line-strong); background: var(--surface); transition: background .12s, color .12s; }
@@ -1084,3 +1082,20 @@ details.optional, .hint, .verify, .page-link, .cover-bar, .map, .stage-map, .dif
   .hm-row .go, .hm-row .go svg { transition: none; }
   .hm-row:hover .go svg { transform: none; }
 }
+
+/* Paneles: una sola receta. Radio 8, borde fino, cabecera --sunk con etiqueta mono en mayúsculas
+   (la de .card-h) y pie --sunk. Antes cada componente tenía la suya (radio 6/8, cabecera en --paper o --sunk, sans o mono). */
+.verify, .hint, .failbox, .cover-bar, .notice { border-radius: 8px; }
+.verify-h, .hint-h, .sm-head h2, .failbox .fail-h b { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); }
+.verify-h, .hint-h, .sm-head, .failbox.soft .fail-h { background: var(--sunk); border-bottom: 1px solid var(--line); }
+.verify-h { padding: 10px 14px; }
+.hint-h { padding: 10px 14px; }
+.verify-h span { font-family: var(--sans); font-size: 12.5px; letter-spacing: 0; text-transform: none; color: var(--ink-3); }
+.hint-h time { font-family: var(--sans); font-size: 12px; letter-spacing: 0; text-transform: none; }
+.verify-h svg, .hint-h svg { width: 14px; height: 14px; color: var(--ink-3); }
+.hint-h svg { color: var(--ember-ink); }
+.verify p { background: var(--sunk); border-top: 1px solid var(--line); }
+/* Pestañas del terminal: subrayado naranja como .cover-tabs, alineadas con el «$» de debajo */
+.cmd-tabs { gap: 16px; padding: 8px 14px 0; border-bottom: 1px solid rgba(255, 255, 255, .07); }
+.cmd-tabs button { padding: 4px 0 7px; margin-bottom: -1px; border-radius: 0; border-bottom: 2px solid transparent; }
+.cmd-tabs button.on { background: none; border-bottom-color: var(--ember); }

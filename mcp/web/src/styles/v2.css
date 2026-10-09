@@ -37,12 +37,12 @@ body { background: var(--paper); }
 .v2-caret { display: inline-block; width: .06em; height: .82em; margin-left: .06em; vertical-align: -.04em; background: var(--ember); animation: blink 1s steps(1) infinite; }
 .v2-sub { max-width: 640px; margin: 26px auto 0; color: var(--ink-2); font-size: clamp(16px, 2vw, 19px); line-height: 1.6; }
 .v2-sub b { color: var(--ink); font-weight: 500; }
-.v2-cta { position: relative; display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 12px 0 20px; border-radius: 10px; font-weight: 600; font-size: 15px; color: #fff;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ember) 100%, #fff 8%), var(--ember)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ember) 70%, #000), 0 8px 30px -6px color-mix(in srgb, var(--ember) 65%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25);
-  transition: transform .15s, box-shadow .2s; }
-.v2-cta:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px var(--ember), 0 12px 40px -6px color-mix(in srgb, var(--ember) 80%, transparent), inset 0 1px 0 rgba(255, 255, 255, .3); }
+.v2-cta { position: relative; display: inline-flex; align-items: center; gap: 10px; height: 46px; padding: 0 12px 0 20px; border-radius: 10px; font-weight: 600; font-size: 15px; color: var(--on-ember);
+  background: var(--ember-btn); box-shadow: 0 0 0 1px var(--ember-btn-line), 0 8px 30px -6px color-mix(in srgb, var(--ember) 65%, transparent), inset 0 1px 0 rgba(255, 255, 255, .25);
+  transition: transform .15s, box-shadow .2s, background .15s; }
+.v2-cta:hover { transform: translateY(-1px); background: var(--ember-btn-hover); box-shadow: 0 0 0 1px var(--ember-btn-line), 0 12px 40px -6px color-mix(in srgb, var(--ember) 80%, transparent), inset 0 1px 0 rgba(255, 255, 255, .3); }
 .v2-cta:active { transform: translateY(1px); }
-.v2-cta kbd { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 6px; background: rgba(0, 0, 0, .22); font: 500 12px var(--mono); }
+.v2-cta kbd { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 6px; background: color-mix(in srgb, var(--on-ember) 18%, transparent); font: 500 12px var(--mono); }
 .v2-micro { margin: 18px 0 0; color: var(--ink-3); font-size: 13px; }
 
 .v2-stage { position: relative; margin: 72px auto 0; max-width: 1040px; text-align: left; perspective: 1400px; }

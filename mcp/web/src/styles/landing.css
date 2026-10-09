@@ -265,7 +265,7 @@ p code, .faq code, .final code { background: var(--sunk); padding: .1em .35em; b
 /* Pasos: se encienden en orden. */
 .steps li { transition: border-color .4s, box-shadow .4s, transform .4s; }
 .steps li.on { border-color: color-mix(in srgb, var(--ember) 45%, var(--line)); box-shadow: 0 10px 30px -18px color-mix(in srgb, var(--ember) 60%, transparent); transform: translateY(-2px); }
-.steps li.on .k { background: var(--ember); color: #fff; }
+.steps li.on .k { background: var(--ember-btn); color: var(--on-ember); }
 .steps .k { transition: background .4s, color .4s; }
 
 /* Foco que sigue al cursor: las tarjetas actualizan --mx y --my. */

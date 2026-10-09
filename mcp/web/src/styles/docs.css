@@ -108,8 +108,8 @@
 .dbtn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); color: var(--ink); font-size: 14.5px; font-weight: 520; text-decoration: none; transition: background .15s, border-color .15s, transform .1s; }
 .dbtn:hover { background: var(--raised); border-color: color-mix(in srgb, var(--ink) 35%, var(--line-strong)); }
 .dbtn:active { transform: translateY(1px); }
-.dbtn.primary { background: var(--ember); border-color: var(--ember); color: #1a0a02; font-weight: 600; box-shadow: 0 0 0 1px color-mix(in srgb, var(--ember) 60%, transparent), 0 6px 18px -6px color-mix(in srgb, var(--ember) 60%, transparent); }
-.dbtn.primary:hover { background: var(--ember-ink); border-color: var(--ember-ink); }
+.dbtn.primary { background: var(--ember-btn); border-color: var(--ember-btn-line); color: var(--on-ember); font-weight: 600; box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 1px 2px rgba(0,0,0,.2); }
+.dbtn.primary:hover { background: var(--ember-btn-hover); border-color: var(--ember-btn-line); }
 
 /* portada */
 .doc-hero { position: relative; margin: 0 0 8px; padding: 6px 0 4px; }

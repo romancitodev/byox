@@ -6,7 +6,7 @@
   --ink: #17171a; --ink-2: #4a4a54; --ink-3: #686872;
   --ember: #e5560b; --ember-ink: #c2410c; --ember-wash: #fff4ed;
   /* Fondo del botón primario: en claro, un naranja más profundo para que el texto blanco pase AA (5.2:1; sobre --ember daba 3.7:1) */
-  --ember-btn: #c2410c; --ember-btn-hover: #b03a0a; --ember-btn-line: #a63709;
+  --ember-btn: #c2410c; --ember-btn-hover: #b03a0a; --ember-btn-line: #a63709; --on-ember: #fff;
   --done: #16a34a; --done-wash: #ecfdf3;
   --warn: #ca8a04; --bad: #dc2626;
   --lock: #a8a8b2;
@@ -28,7 +28,7 @@
     --paper: #09090b; --surface: #121214; --raised: #1a1a1e; --sunk: #0e0e10; --hover: #212126; --line: #2a2a30; --line-soft: #1e1e23; --line-strong: #44444d;
     --ink: #f0f0f2; --ink-2: #b0b0b8; --ink-3: #8c8c96;
     --ember: #f9732f; --ember-ink: #fb8c4f; --ember-wash: rgba(249, 115, 47, .12);
-    --ember-btn: #f9732f; --ember-btn-hover: #fb8c4f; --ember-btn-line: #fb8c4f;
+    --ember-btn: #f9732f; --ember-btn-hover: #fb8c4f; --ember-btn-line: #fb8c4f; --on-ember: #1a0a02;
     --done: #3fb950; --done-wash: rgba(63, 185, 80, .12);
     --warn: #eab308; --bad: #f87171;
     --lock: #4e4e57;
@@ -45,7 +45,7 @@
   --paper: #09090b; --surface: #121214; --raised: #1a1a1e; --sunk: #0e0e10; --hover: #212126; --line: #2a2a30; --line-soft: #1e1e23; --line-strong: #44444d;
   --ink: #f0f0f2; --ink-2: #b0b0b8; --ink-3: #8c8c96;
   --ember: #f9732f; --ember-ink: #fb8c4f; --ember-wash: rgba(249, 115, 47, .12);
-    --ember-btn: #f9732f; --ember-btn-hover: #fb8c4f; --ember-btn-line: #fb8c4f;
+  --ember-btn: #f9732f; --ember-btn-hover: #fb8c4f; --ember-btn-line: #fb8c4f; --on-ember: #1a0a02;
   --done: #3fb950; --done-wash: rgba(63, 185, 80, .12);
   --warn: #eab308; --bad: #f87171;
   --lock: #4e4e57;
@@ -72,3 +72,12 @@ svg.lucide, .ic svg { width: 16px; height: 16px; stroke-width: 1.75; flex-shrink
 i.ic { display: inline-flex; width: 16px; height: 16px; flex-shrink: 0; }
 .tnum { font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Scrollbars: finos y sin pista; el pulgar sólo se nota al pasar el ratón por encima.
+   (Estándar scrollbar-width/color: Chrome 121+, Firefox, Safari 18.2+.) */
+* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+*:hover { scrollbar-color: color-mix(in srgb, var(--ink) 30%, transparent) transparent; }
+html { scrollbar-color: color-mix(in srgb, var(--ink) 22%, transparent) transparent; }
+/* superficies oscuras fijas (terminal, logs, código de los docs): el pulgar es claro en los dos temas */
+.term, .term *, .logbox, details.log pre, .doc pre, .l-code, .l-code pre { scrollbar-color: transparent transparent; }
+.term:hover, .term *:hover, .logbox:hover, details.log pre:hover, .doc pre:hover, .l-code:hover, .l-code pre:hover { scrollbar-color: rgba(255, 255, 255, .28) transparent; }
