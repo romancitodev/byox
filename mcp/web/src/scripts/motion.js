@@ -111,36 +111,40 @@ export function fold(row, id, folds, commit) {
   }
 }
 
-/** Barra lateral: el ancho se interpola, las etiquetas se desvanecen y lo que cambia de altura se desliza (FLIP). */
+/** Barra lateral: el ancho se interpola y las etiquetas se desvanecen. El alto no cambia entre las dos formas (ver app.css), así que nada salta. */
 export function slim(shell, willSlim, apply) {
   if (!on() || matchMedia("(max-width: 760px)").matches) return apply();
   const cols = (w) => `${w}px minmax(0, 1fr)`;
-  const tops = () => [...shell.querySelectorAll(".side > *")].map((e) => [e, e.getBoundingClientRect().top]);
-  // El layout vertical difiere entre las dos formas (cabecera, títulos de sección): sin esto, al cambiar la clase todo salta de golpe.
-  const flip = (before, duration) => {
-    for (const [e, top] of before) {
-      const d = top - e.getBoundingClientRect().top;
-      if (Math.abs(d) > 0.5) gsap.fromTo(e, { y: d }, { y: 0, duration, ease: "power3.out", clearProps: "transform" });
+  const texts = () => [...shell.querySelectorAll(".side .hide-slim")];
+  const titles = () => [...shell.querySelectorAll(".side .side-label")]; // el separador queda; sólo se va el texto
+  // En la forma estrecha los puntos y LEDs se centran: sin esto saltan unos píxeles de golpe al cambiar la clase.
+  const marks = () => [...shell.querySelectorAll(".side .nav-course .dot, .side .sys .led, .side .nav-item > svg, .side .logo, .side .avatar")];
+  const lefts = () => marks().map((e) => [e, e.getBoundingClientRect().left]);
+  const glide = (before, duration) => {
+    for (const [e, left] of before) {
+      const d = left - e.getBoundingClientRect().left;
+      if (Math.abs(d) > 0.5) gsap.fromTo(e, { x: d }, { x: 0, duration, ease: "power3.out", clearProps: "transform" });
     }
   };
-  const labels = () => [...shell.querySelectorAll(".side .hide-slim, .side .side-label")];
-  gsap.killTweensOf([shell, ...labels()]);
+  gsap.killTweensOf([shell, ...texts(), ...titles(), ...marks()]);
   if (willSlim) {
-    gsap.to(labels(), { opacity: 0, duration: 0.12 });
+    gsap.to(texts(), { opacity: 0, duration: 0.12 });
+    gsap.to(titles(), { color: "rgba(0,0,0,0)", duration: 0.12 });
     gsap.fromTo(shell, { gridTemplateColumns: cols(236) }, { gridTemplateColumns: cols(52), duration: 0.26, ease: "power3.inOut", onComplete: () => {
-      const before = tops();
+      const before = lefts();
       apply();
-      gsap.set(labels(), { clearProps: "opacity" });
+      glide(before, 0.2);
+      gsap.set([...texts(), ...titles()], { clearProps: "opacity,color" });
       gsap.set(shell, { clearProps: "gridTemplateColumns" });
-      flip(before, 0.2);
     } });
   } else {
-    const before = tops();
+    gsap.set(shell, { gridTemplateColumns: cols(52) }); // antes de cambiar la clase: el layout se resuelve ya con el ancho inicial
+    const before = lefts();
     apply();
-    flip(before, 0.3);
-    gsap.set(shell, { gridTemplateColumns: cols(52) });
+    glide(before, 0.25);
     gsap.to(shell, { gridTemplateColumns: cols(236), duration: 0.28, ease: "power3.inOut", clearProps: "gridTemplateColumns" });
-    gsap.fromTo(labels(), { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.25, delay: 0.1, stagger: 0.012, clearProps: "opacity,transform" });
+    gsap.fromTo(texts(), { opacity: 0, x: -6 }, { opacity: 1, x: 0, duration: 0.25, delay: 0.1, stagger: 0.012, clearProps: "opacity,transform" });
+    gsap.from(titles(), { color: "rgba(0,0,0,0)", duration: 0.2, delay: 0.12, clearProps: "color" });
   }
 }
 

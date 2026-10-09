@@ -1114,3 +1114,10 @@ details.optional, .hint, .verify, .page-link, .cover-bar, .map, .stage-map, .dif
 .verify .cmd-tabs button.on { color: var(--ink); }
 details.log pre, .logbox { background: var(--code); color: var(--ink); border: 1px solid var(--line); }
 details.log pre .hl, .logbox .hl { color: var(--ink); }
+
+/* Barra lateral: mismo alto vertical en las dos formas, para que al plegarla nada se desplace.
+   La cabecera mide lo mismo y el título de sección se queda como separador (sin texto) en vez de colapsar a 0. */
+.ws { height: 38px; box-sizing: border-box; }
+.side-label { white-space: nowrap; overflow: hidden; min-width: 0; height: 16px; box-sizing: border-box; }
+.shell.slim .side-label { visibility: visible; height: 16px; margin: 18px 8px 6px; font-size: 0; gap: 0; }
+.shell.slim .side-label::after { display: block; }
