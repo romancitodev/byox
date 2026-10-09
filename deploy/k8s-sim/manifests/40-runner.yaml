@@ -1,0 +1,110 @@
+# VPS B y B2: runners de Forgejo, uno por máquina. Cada pod trae su propio Docker (dind) y se registra solo al
+# arrancar, con su uuid y su token: no comparten registración. Escalar es subir `replicas` (hasta una por VPS B).
+#
+# El runner sale hacia Forgejo; nadie le entra salvo el MCP, que usa el Docker de cualquiera de ellos para verify_course.
+# Los jobs ven a `forgejo` y `mcp` por nombre, como en el compose.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: runner-config, namespace: byox }
+data:
+  config.yml: |
+    log:
+      level: info
+    runner:
+      # Un job por runner: dos jobs a la vez caen en dos pods distintos.
+      capacity: 1
+      timeout: 1h
+    container:
+      force_pull: false
+      valid_volumes:
+        - "byox-cache-*"
+---
+# Headless: resuelve a la IP de cada pod listo (y cada pod tiene su nombre estable, runner-0.runner). El MCP no
+# pasa por un balanceador: toma la lista, elige un daemon por verificación y hace todo con ése, porque
+# create/cp/start/rm tienen que caer en la misma máquina. Si un runner cae, deja de aparecer en la lista.
+apiVersion: v1
+kind: Service
+metadata: { name: runner, namespace: byox }
+spec:
+  clusterIP: None
+  selector: { app: runner }
+  ports: [{ name: docker, port: 2375 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: { name: runner, namespace: byox }
+spec:
+  serviceName: runner
+  replicas: 2
+  podManagementPolicy: Parallel
+  selector: { matchLabels: { app: runner } }
+  template:
+    metadata: { labels: { app: runner } }
+    spec:
+      nodeSelector: { byox/vps: b }
+      # Una réplica por VPS: reparte entre vps-b y vps-b2. Con más réplicas que máquinas, las que sobran quedan Pending.
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector: { matchLabels: { app: runner } }
+              topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: register
+          image: data.forgejo.org/forgejo/runner:13
+          securityContext: { runAsUser: 0 }
+          workingDir: /data
+          command:
+            - sh
+            - -c
+            - |
+              # Si el contenedor se reinicia dentro del mismo pod, se conserva la registración (/data/.runner).
+              [ -f /data/.runner ] || forgejo-runner register --no-interactive \
+                --instance http://forgejo:3000 --token "$REGISTRATION_TOKEN" \
+                --name "$POD_NAME" --labels "docker:docker://node:22-bookworm"
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+            - name: REGISTRATION_TOKEN
+              valueFrom: { secretKeyRef: { name: runner-registration, key: token } }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      containers:
+        - name: dind
+          image: docker:27-dind
+          securityContext: { privileged: true }
+          env:
+            # Sin TLS: en la VPS real esto escucha sólo en la red privada (WireGuard) y con firewall.
+            - { name: DOCKER_TLS_CERTDIR, value: "" }
+          ports: [{ containerPort: 2375 }]
+          readinessProbe:
+            httpGet: { path: /_ping, port: 2375 }
+            periodSeconds: 3
+          volumeMounts:
+            - { name: docker, mountPath: /var/lib/docker }
+        - name: runner
+          image: data.forgejo.org/forgejo/runner:13
+          securityContext: { runAsUser: 0 }
+          workingDir: /data
+          command:
+            - sh
+            - -c
+            - until wget -qO- http://127.0.0.1:2375/_ping >/dev/null 2>&1; do sleep 1; done; exec forgejo-runner daemon --config /config/config.yml
+          env:
+            - { name: DOCKER_HOST, value: "tcp://127.0.0.1:2375" }
+          volumeMounts:
+            - { name: config, mountPath: /config, readOnly: true }
+            - { name: data, mountPath: /data }
+      volumes:
+        - { name: docker, emptyDir: {} }
+        - { name: data, emptyDir: {} }
+        - name: config
+          configMap: { name: runner-config }
+---
+# Un drenaje de nodo no se lleva a todos los runners a la vez. Sólo el runner: Postgres y Forgejo tienen una
+# réplica y un PDB bloquearía drenar su nodo.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata: { name: runner, namespace: byox }
+spec:
+  maxUnavailable: 1
+  selector: { matchLabels: { app: runner } }

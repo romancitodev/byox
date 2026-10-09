@@ -1,0 +1,39 @@
+# VPS A: la web y el MCP. Sin socket de Docker: verify_course corre en el Docker de alguno de los runners (DOCKER_HOSTS).
+apiVersion: v1
+kind: Service
+metadata: { name: mcp, namespace: byox }
+spec:
+  type: NodePort
+  selector: { app: mcp }
+  ports: [{ port: 3333, nodePort: 30333 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: mcp, namespace: byox }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: mcp } }
+  template:
+    metadata: { labels: { app: mcp } }
+    spec:
+      nodeSelector: { byox/vps: a }
+      containers:
+        - name: mcp
+          image: byox-mcp:sim
+          imagePullPolicy: Never
+          ports: [{ containerPort: 3333 }]
+          envFrom: [{ secretRef: { name: byox-app } }]
+          env:
+            - name: BYOX_DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: byox-db, key: BYOX_DB_PASSWORD } }
+            - { name: DATABASE_URL, value: "postgres://byox:$(BYOX_DB_PASSWORD)@postgres:5432/byox" }
+            - { name: FORGEJO_URL, value: "http://forgejo:3000" }
+            - { name: BYOX_PUBLIC_URL, value: "http://localhost:13000" }
+            - { name: BYOX_WEB_URL, value: "http://localhost:13333" }
+            - { name: BYOX_SIGNUP, value: closed }
+            # Los Docker de los runners. `runner` es el Service headless: resuelve a la IP de cada pod listo. Cada
+            # verificación elige uno (por turnos, saltando los caídos) y hace con él create/cp/start/rm.
+            - { name: DOCKER_HOSTS, value: "tcp://runner:2375" }
+          readinessProbe:
+            httpGet: { path: /health, port: 3333 }
+            periodSeconds: 5

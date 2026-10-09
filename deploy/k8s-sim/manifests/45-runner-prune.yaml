@@ -1,0 +1,78 @@
+# Limpieza de registros viejos de runners. Cuando un pod runner-N se recrea, su initContainer se registra de nuevo
+# (nuevo uuid, mismo nombre) y el registro anterior queda en Forgejo como `offline`. Se acumulan, y este CronJob los
+# borra con la API de admin de Forgejo: DELETE /api/v1/admin/actions/runners/{id}. Hace sólo eso.
+#
+# GUARDA elegida: se borra un runner `offline` SOLO si existe otro registro con el MISMO nombre que no esté `offline`
+# (idle o active). Por qué esa y no "offline hace más de X":
+#   - La API no expone desde cuándo está offline (sólo id, uuid, nombre, estado, versión, labels), así que un
+#     umbral de tiempo habría que inventarlo con estado propio.
+#   - Un registro viejo con reemplazo vivo es basura segura: el pod es el mismo nombre y sólo puede haber uno.
+#   - Nunca toca un runner online, y nunca el único registro de un nombre: si runner-1 está caído y no hay otro
+#     registro runner-1, se deja (vuelve solo cuando el pod arranque; el registro se conserva en /data/.runner).
+#   - Un runner nuevo que aún se ve `offline` un instante no se borra: la guarda exige un homónimo online, y si el
+#     viejo también está offline no hay ninguno. Si hay dos viejos offline y el nuevo todavía no conectó, se esperan.
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: runner-prune, namespace: byox }
+spec:
+  schedule: "*/2 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  startingDeadlineSeconds: 60
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 90
+      ttlSecondsAfterFinished: 600
+      template:
+        metadata: { labels: { app: runner-prune } }
+        spec:
+          restartPolicy: Never
+          nodeSelector: { byox/vps: a }
+          securityContext: { runAsNonRoot: true, runAsUser: 100, seccompProfile: { type: RuntimeDefault } }
+          containers:
+            - name: prune
+              # curlimages/curl: Alpine con busybox (sh, sed, awk, sort), sin jq; el JSON se parsea con sed/awk.
+              image: curlimages/curl:8.11.1
+              securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] } }
+              resources:
+                requests: { cpu: 10m, memory: 16Mi }
+                limits: { cpu: 100m, memory: 32Mi }
+              env:
+                - name: BYOX_TOKEN
+                  valueFrom: { secretKeyRef: { name: byox-app, key: BYOX_TOKEN } }
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  API=http://forgejo:3000/api/v1/admin/actions/runners
+                  auth="Authorization: token $BYOX_TOKEN"
+
+                  # Todas las páginas (la API pagina). Una respuesta de error corta el Job: sin lista no se borra nada.
+                  all=""
+                  page=1
+                  while [ "$page" -le 20 ]; do
+                    body="$(curl -fsS -H "$auth" "$API?limit=50&page=$page")"
+                    [ "$body" != "[]" ] || break
+                    all="$all
+                  $body"
+                    page=$((page + 1))
+                  done
+
+                  # Un objeto por línea -> "id nombre estado".
+                  rows="$(printf '%s' "$all" | sed 's/},{/}\n{/g' \
+                    | sed -n 's/.*"id":\([0-9][0-9]*\),.*"name":"\([^"]*\)","status":"\([^"]*\)".*/\1 \2 \3/p')"
+                  echo "runners vistos:"; printf '%s\n' "$rows" | sed 's/^/  /'
+
+                  # Ids offline cuyo nombre tiene otro registro NO offline.
+                  stale="$(printf '%s\n' "$rows" | awk '
+                    NF == 3 { if ($3 == "offline") off[$1] = $2; else live[$2] = 1 }
+                    END { for (id in off) if (off[id] in live) print id }')"
+
+                  for id in $stale; do
+                    echo "borrando runner viejo id=$id (offline, con homónimo online)"
+                    curl -fsS -X DELETE -H "$auth" "$API/$id"
+                  done
+                  echo "listo: $(printf '%s' "$stale" | grep -c . || true) borrados"

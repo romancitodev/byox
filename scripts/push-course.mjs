@@ -6,6 +6,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { basename, join, relative } from "node:path";
 
+// BYOX_TOKEN: un token personal (Cuenta → Tokens). BYOX_MCP: otra URL del MCP.
 const MCP = process.env.BYOX_MCP ?? "http://mcp:3333/mcp";
 const [dir, ...flags] = process.argv.slice(2);
 if (!dir) {
@@ -18,7 +19,11 @@ let id = 0;
 async function call(name, args) {
   const res = await fetch(MCP, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+      ...(process.env.BYOX_TOKEN && { Authorization: `Bearer ${process.env.BYOX_TOKEN}` }),
+    },
     body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method: "tools/call", params: { name, arguments: args } }),
   });
   const raw = await res.text();
