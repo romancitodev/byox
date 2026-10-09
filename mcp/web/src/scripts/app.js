@@ -60,13 +60,15 @@ const S = { courses: null, health: null, profile: null, slim: false };
 try { S.slim = localStorage.getItem("byox-slim") === "1"; } catch {}
 let ctx = null; // curso abierto: { slug, course, n, tab, poll, run, issueCache, collapsed }
 
-async function loadGlobals() {
+/** Cursos, estado del sistema y perfil. Con `maxAge`, si se cargaron hace menos de eso no se vuelven a pedir (el arranque y Inicio piden lo mismo seguidos). */
+async function loadGlobals(maxAge = 0) {
+  if (maxAge && S.courses && Date.now() - (S.at ?? 0) < maxAge) return;
   const [courses, health, profile] = await Promise.all([
     api("/courses").then((cs) => cs.map(named)).catch(() => S.courses ?? []),
     api("/health").catch(() => null),
     api("/profile").catch(() => S.profile),
   ]);
-  Object.assign(S, { courses, health, profile });
+  Object.assign(S, { courses, health, profile, at: Date.now() });
 }
 /** El título para mostrar y el lenguaje, iguales en toda la app. */
 const named = (c) => ({ ...c, title: courseName(c.title), lang: language(c.image) });
@@ -300,7 +302,9 @@ const greeting = () => {
 };
 async function home() {
   shell("home", crumb([{ label: t("Inicio") }]), flameChip(), loading);
-  await loadGlobals();
+  const activity = S.activityP ?? api("/activity").catch(() => []); // no depende de los cursos: sale en paralelo con ellos
+  S.activityP = null;
+  await loadGlobals(3000);
   const courses = [...S.courses].sort((a, b) => Number(b.started) - Number(a.started) || b.updatedAt.localeCompare(a.updatedAt));
   const p = S.profile;
   const started = courses.filter((c) => c.started);
@@ -310,7 +314,7 @@ async function home() {
   // El detalle de los cursos en curso da la próxima etapa de cada uno; la actividad, la semana.
   const [details, rawEvents] = await Promise.all([
     Promise.all(active.map((c) => fetchCourse(c.slug).catch(() => null))),
-    api("/activity").catch(() => []),
+    activity,
   ]);
   const ready = details.filter(Boolean).flatMap((d) => d.issues.filter((i) => i.state === "ready").map((i) => ({ i, d })));
   const events = groupEvents(rawEvents);
@@ -2568,6 +2572,8 @@ async function boot() {
     if (e.status === 401) return showLogin();
     // El servidor no responde: se sigue, y cada vista muestra su error con «Reintentar».
   }
+  // Inicio necesita la actividad además de los globales, y no dependen entre sí: salen juntas.
+  if (appPath() === "/") S.activityP = api("/activity").catch(() => []);
   await loadGlobals();
   route();
 }

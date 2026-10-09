@@ -1,4 +1,7 @@
 ---
+import "@fontsource-variable/inter/opsz.css";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/500.css";
 import "../styles/base.css";
 
 interface Props {
@@ -56,13 +59,6 @@ const abs = (href: string) => (Astro.site ? new URL(href, Astro.site).href : hre
     <meta name="theme-color" content="#0d0d0f" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#f7f7f8" media="(prefers-color-scheme: light)" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Inter con eje de tamaño óptico: los títulos usan solos el corte Display. -->
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=JetBrains+Mono:wght@400;500&display=swap"
-    />
     <script is:inline>
       document.documentElement.classList.add("js");
       try { const t = localStorage.getItem("byox-theme"); if (t) document.documentElement.dataset.theme = t; } catch {}

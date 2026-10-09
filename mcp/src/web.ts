@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname } from "node:path";
+import { brotliCompressSync, constants as zc, gzipSync } from "node:zlib";
 import { parse } from "yaml";
 import { HttpError, type Auth } from "./auth.js";
 import { isVerified, loadSource } from "./course.js";
@@ -25,10 +26,33 @@ const TYPES: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const json = (res: ServerResponse, data: unknown, status = 200) => {
-  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
-  res.end(JSON.stringify(data));
-};
+/** Texto comprimible: HTML, JS, CSS, JSON y SVG. Imágenes y fuentes ya vienen comprimidas. */
+const COMPRESSIBLE = /^(text\/|application\/json|image\/svg)/;
+const squeezed = new Map<string, Buffer>();
+/** Responde con br/gzip si el cliente lo acepta. Lo estático se comprime una vez (el build no cambia mientras corre); la API, con gzip rápido. */
+function send(res: ServerResponse, status: number, headers: Record<string, string>, body: string | Buffer, key?: string) {
+  const buf = typeof body === "string" ? Buffer.from(body) : body;
+  const accept = String(res.req?.headers["accept-encoding"] ?? "");
+  const accepts = (e: string) => accept.split(",").some((x) => x.trim().split(";")[0] === e);
+  const enc = buf.length < 1024 || !COMPRESSIBLE.test(headers["Content-Type"] ?? "") ? null : accepts("br") && key ? "br" : accepts("gzip") ? "gzip" : null;
+  if (!enc) {
+    res.writeHead(status, { ...headers, "Content-Length": buf.length });
+    return res.end(buf);
+  }
+  const id = key ? `${enc}:${key}` : "";
+  let out = id ? squeezed.get(id) : undefined;
+  if (!out) {
+    out = enc === "br"
+      ? brotliCompressSync(buf, { params: { [zc.BROTLI_PARAM_QUALITY]: 9, [zc.BROTLI_PARAM_SIZE_HINT]: buf.length } })
+      : gzipSync(buf, { level: key ? 9 : 4 });
+    if (id) squeezed.set(id, out);
+  }
+  res.writeHead(status, { ...headers, "Content-Encoding": enc, "Content-Length": out.length, Vary: "Accept-Encoding" });
+  res.end(out);
+}
+
+const json = (res: ServerResponse, data: unknown, status = 200) =>
+  send(res, status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }, JSON.stringify(data));
 
 /** Un segmento «..» sube de carpeta; un nombre que solo lo contiene (como `_..abc.css`) es válido. */
 const hasDotDot = (p: string) => p.split(/[\/]/).some((seg) => seg === ".." || /^%2e%2e$/i.test(seg));
@@ -65,10 +89,22 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
     };
   }
   const bodyCache = new Map<string, string>();
+  /** Respuestas recientes de Forgejo, con las peticiones en vuelo compartidas: la UI pide lo mismo varias veces seguidas
+   *  (arranque, Inicio, el detalle de cada curso) y cada una cuesta decenas o cientos de ms de ida y vuelta. */
+  const memo = new Map<string, { at: number; p: Promise<unknown> }>();
+  const cached = <T>(key: string, ttl: number, fn: () => Promise<T>): Promise<T> => {
+    const hit = memo.get(key);
+    if (hit && Date.now() - hit.at < ttl) return hit.p as Promise<T>;
+    const p = fn();
+    memo.set(key, { at: Date.now(), p });
+    p.catch(() => memo.delete(key));
+    return p;
+  };
   let statsCache: { at: number; stats: Stats } | undefined;
 
   /** Estructura del curso: la del repo del alumno si arrancó, si no la del repo fuente. */
-  async function structure(slug: string) {
+  const structure = (slug: string) => cached(`s:${slug}`, 3000, () => structureOf(slug));
+  async function structureOf(slug: string) {
     const started = !!(await fj.find(`/repos/${owner}/${slug}`));
     const yaml = await fj.raw(cfg.org, slug, "course.yaml").catch(() => null);
     const source = yaml ? parse(yaml.toString("utf8")) : null;
@@ -82,7 +118,8 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
     return { started, course, source, hints };
   }
 
-  async function issueStates(slug: string) {
+  const issueStates = (slug: string) => cached(`i:${slug}`, 2000, () => issueStatesOf(slug));
+  async function issueStatesOf(slug: string) {
     const issues = await fj.all<any>(`/repos/${owner}/${slug}/issues?state=all&type=issues`);
     return new Map<number, any>(issues.map((i) => [i.number, i]));
   }
@@ -108,12 +145,13 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
           done = [...states.values()].filter((i) => i.state === "closed").length;
           // Etapas que el curso fuente tiene y tu repo todavía no: se traen con upgrade.
           newStages = (s.source?.issues ?? []).filter((i: any) => !states.has(i.id)).length;
-          for (const i of s.course.issues) {
-            if (stateOf(i, states.get(i.id), states) !== "ready") continue;
-            const res = await resultOf(r.name, i.id);
+          const ready = s.course.issues.filter((i: any) => stateOf(i, states.get(i.id), states) === "ready");
+          const outcomes = await Promise.all(ready.map((i: any) => resultOf(r.name, i.id)));
+          ready.forEach((i: any, k: number) => {
+            const res = outcomes[k];
             // "todo": la etapa está sin empezar (el esqueleto), no es una falla.
             if (res && !res.ok && res.kind !== "todo") failing.push({ n: i.id, title: i.title, ...res });
-          }
+          });
         }
         // Cuántas etapas tiene cada tramo y cuántas llevas: las barras de progreso las dibujan por tramo.
         const parts = (s?.course?.milestones ?? []).map((m: any) => {
@@ -308,7 +346,16 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
     await fj.as(owner).req("POST", `/repos/${owner}/${slug}/issues/${n}/comments`, { body: "/pista" });
   }
 
-  return { cfg, courses, course, issue, status, stats, readme, askHint, health, activity, api: { courses, course, issue, status, stats, readme, askHint } };
+  /** Lo que ve la UI (con memo corto); el asistente (MCP) usa las versiones directas. */
+  const view = {
+    courses: () => cached("courses", 2000, courses),
+    course: (slug: string) => cached(`course:${slug}`, 2000, () => course(slug)),
+    activity: () => cached("activity", 2000, activity),
+    health: () => cached("health", 4000, health),
+  };
+  const bust = () => memo.clear();
+
+  return { cfg, ...view, issue, status, stats, readme, askHint, bust, api: { courses, course, issue, status, stats, readme, askHint } };
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -326,19 +373,16 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
     // La documentación son páginas estáticas: /docs, /docs/<página>.
     if (req.method === "GET" && (p === "/docs" || p.startsWith("/docs/")) && !extname(p) && !hasDotDot(p)) {
       const file = await readFile(new URL(`docs${p.replace(/\/+$/, "").slice("/docs".length)}/index.html`, DIST)).catch(() => null);
-      res.writeHead(file ? 200 : 404, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache" });
-      res.end(file ?? "No encontrado");
+      send(res, file ? 200 : 404, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache" }, file ?? "No encontrado", file ? p : undefined);
       return true;
     }
     // La landing en inglés.
     if (req.method === "GET" && (p === "/en" || p === "/en/")) {
-      res.writeHead(200, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache", "Content-Language": "en" });
-      res.end(await readFile(new URL("en/index.html", DIST)));
+      send(res, 200, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache", "Content-Language": "en" }, await readFile(new URL("en/index.html", DIST)), "/en");
       return true;
     }
     if (req.method === "GET" && (p === "/" || p === "/app" || p.startsWith("/app/"))) {
-      res.writeHead(200, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache" });
-      res.end(await readFile(new URL(p === "/" ? "index.html" : "app/index.html", DIST)));
+      send(res, 200, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache" }, await readFile(new URL(p === "/" ? "index.html" : "app/index.html", DIST)), p === "/" ? "/" : "/app");
       return true;
     }
     if (req.method === "GET" && TYPES[extname(p)] && !hasDotDot(p)) {
@@ -346,8 +390,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
       if (file) {
         // Lo que está en /_astro/ lleva el hash en el nombre: no cambia nunca.
         const cache = p.startsWith("/_astro/") ? "public, max-age=31536000, immutable" : "no-cache";
-        res.writeHead(200, { "Content-Type": TYPES[extname(p)], "Cache-Control": cache });
-        res.end(file);
+        send(res, 200, { "Content-Type": TYPES[extname(p)], "Cache-Control": cache }, file, p);
         return true;
       }
     }
@@ -357,6 +400,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
       const who = await auth.principal(req);
       if (!who) return json(res, { error: "Inicia sesión.", login: true }, 401), true;
       const w = forUser(who.user);
+      if (req.method !== "GET") w.bust(); // algo va a cambiar (empezar, actualizar, verificar…): lo memorizado deja de valer
       if (req.method === "GET" && p === "/api/courses") return json(res, await w.courses()), true;
       if (req.method === "GET" && p === "/api/profile") return json(res, await w.stats()), true;
       if (req.method === "GET" && p === "/api/health") return json(res, await w.health()), true;
