@@ -130,6 +130,8 @@ export const EN = {
   "Crear token": "Create token",
   "CLI de byox": "byox CLI",
   "Copia tu token ahora.": "Copy your token now.",
+  "Tu token": "Your token",
+  "Conéctalo con": "Connect it with",
   "No volverá a mostrarse.": "It won't be shown again.",
   "Listo": "Done",
   "¿Revocar este token? Lo que lo use dejará de funcionar.": "Revoke this token? Anything using it will stop working.",

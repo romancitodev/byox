@@ -2339,9 +2339,21 @@ async function accountPage() {
     try {
       const tk = await post("/auth/tokens", { name: e.target.name.value });
       out.hidden = false;
-      out.innerHTML = `<div class="notice done"><span><b>${t("Copia tu token ahora.")}</b> ${t("No volverá a mostrarse.")}</span></div>${cmdBox(tk.token)}
-        ${tokenCmds(tk.token).map(([l, c]) => `<p class="muted">${esc(l)}</p>${cmdBox(c)}`).join("")}
-        <button class="btn" data-act="reload">${t("Listo")}</button>`;
+      const cmds = tokenCmds(tk.token);
+      out.innerHTML = `<div class="notice done"><span><b>${t("Copia tu token ahora.")}</b> ${t("No volverá a mostrarse.")}</span></div>
+        <div class="tok-block"><span class="eyebrow">${t("Tu token")}</span>${cmdBox(tk.token)}</div>
+        <div class="tok-block">
+          <div class="tok-tabs"><span class="eyebrow">${t("Conéctalo con")}</span>
+            <div class="seg" role="group" aria-label="${t("Conéctalo con")}">${cmds.map(([l], k) => `<button type="button" data-tk="${k}" aria-pressed="${k === 0}">${esc(l)}</button>`).join("")}</div></div>
+          ${cmds.map(([, c], k) => `<div class="tok-cmd" data-tkcmd="${k}"${k ? " hidden" : ""}>${cmdBox(c)}</div>`).join("")}
+        </div>
+        <div><button class="btn" data-act="reload">${t("Listo")}</button></div>`;
+      out.querySelectorAll("[data-tk]").forEach((b) =>
+        b.addEventListener("click", () => {
+          out.querySelectorAll("[data-tk]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+          out.querySelectorAll("[data-tkcmd]").forEach((x) => (x.hidden = x.dataset.tkcmd !== b.dataset.tk));
+        }),
+      );
       paint();
     } catch (ex) {
       toast(errText(ex), "circle-x");

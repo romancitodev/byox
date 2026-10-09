@@ -19,19 +19,29 @@
 .auth-foot { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--line-soft); font-size: 12.5px; color: var(--ink-3); }
 .auth-foot a:hover { color: var(--ink); }
 
-.acct { max-width: 760px; }
+.acct { max-width: 760px; min-width: 0; }
 .acct .card { margin-bottom: 16px; }
-.acct .card-b { display: grid; gap: 12px; }
+/* minmax(0, 1fr): sin esto la columna crece con el comando más largo y la tarjeta se desborda */
+.acct .card-b { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .acct .card-b > p { margin: 0; }
 .phead-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .tok-list { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r-md); }
 .tok-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; }
 .tok-list li + li { border-top: 1px solid var(--line-soft); }
-.tok-list li > div { min-width: 0; display: grid; gap: 2px; }
+.tok-list li > div { min-width: 0; flex: 1; display: grid; gap: 2px; }
+.tok-list li .btn { flex: none; }
 .tok-list b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tok-list .empty-row { justify-content: center; padding: 16px; }
 .tok-new { display: flex; gap: 8px; }
 .tok-new input { flex: 1; min-width: 0; }
-.tok-reveal, .inv-out { display: grid; gap: 8px; }
+.tok-reveal, .inv-out { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+.tok-reveal .notice { margin: 0; }
+.tok-block { display: grid; gap: 6px; min-width: 0; }
+.tok-tabs { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+/* los comandos se leen enteros: con salto de línea, no cortados con «…» */
+.tok-reveal .clone, .inv-out .clone { margin-top: 0; align-items: flex-start; padding: 7px 5px 7px 11px; }
+.tok-reveal .clone code, .inv-out .clone code { overflow: visible; white-space: pre-wrap; overflow-wrap: anywhere; text-overflow: clip; font-size: 12.5px; line-height: 1.6; }
+.tok-reveal .clone .icon-btn, .inv-out .clone .icon-btn { flex: none; }
+.tok-cmd[hidden], .tok-reveal [hidden] { display: none; }
 .pw-form { display: grid; gap: 12px; max-width: 360px; }
 @media (max-width: 560px) { .tok-new { flex-direction: column; } .tok-list li { flex-wrap: wrap; } }
