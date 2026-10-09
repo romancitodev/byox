@@ -21,7 +21,7 @@
 .side-more { color: var(--ink-3); font-size: 12.5px; }
 
 /* El contenido nuevo entra con un fundido corto; el foco programático no dibuja anillo */
-.content.view-in { animation: voice-in .18s ease-out both; }
+/* la entrada de las vistas la anima motion.js (GSAP) */
 #content:focus { outline: none; }
 
 /* Foco por teclado: visible y con el acento */

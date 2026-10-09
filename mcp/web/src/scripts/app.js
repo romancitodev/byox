@@ -3,6 +3,7 @@ import { createIcons } from "lucide";
 import { icons } from "./icons.js";
 import { courseName, language } from "../lib/course.js";
 import { LANG, locale, t, setLang } from "./i18n.js";
+import * as motion from "./motion.js";
 
 const $app = document.getElementById("app");
 /** La app vive en /app: el router del cliente resuelve /app, /app/cursos, /app/actividad y /app/c/<curso>/<n>. */
@@ -2408,8 +2409,11 @@ function navigate(path) {
   route();
 }
 
+let motionKind = "page";
 async function route() {
+  motionKind = "page";
   await routeInner();
+  motion[motionKind]();
   // Teclado y lectores de pantalla: al cambiar de vista el foco pasa al contenido, no se queda en el link anterior.
   if (!document.querySelector(".overlay")) document.getElementById("content")?.focus({ preventScroll: true });
 }
@@ -2428,7 +2432,7 @@ async function routeInner() {
         document.querySelector(".crumbs .cur").textContent = `#${n}`;
         renderTrack();
         renderAside();
-        document.getElementById("main").scrollTop = 0;
+        motionKind = "article";
         return loadIssue();
       }
       return await coursePage(slug, n);
@@ -2476,11 +2480,13 @@ document.addEventListener("click", (e) => {
   if (tab) {
     ctx.tab = tab.dataset.tab;
     renderMain();
+    motion.swap();
   }
   const cmd = e.target.closest("[data-cmd]");
   if (cmd) {
     ctx.cmdTab = cmd.dataset.cmd;
     renderMain();
+    motion.swap();
   }
   const cp = e.target.closest("[data-copy]");
   if (cp) copy(cp.dataset.copy, cp.dataset.what);
@@ -2531,6 +2537,7 @@ document.addEventListener("keydown", (e) => {
   else if (["1", "2", "3", "4"].includes(e.key)) {
     ctx.tab = ["instrucciones", "pistas", "salida", "actividad"][Number(e.key) - 1];
     renderMain();
+    motion.swap();
   } else return;
   e.preventDefault();
 });
