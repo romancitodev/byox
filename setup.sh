@@ -15,6 +15,20 @@ rand() { od -An -tx1 -N"$1" /dev/urandom | tr -d ' \n' | cut -c1-"$1"; }
 fj() { docker compose exec -T -u git forgejo forgejo "$@"; }
 api() { curl -fsS -H "Authorization: token $BYOX_TOKEN" -H 'Content-Type: application/json' "$@"; }
 
+# Con docker-compose.cloud.yml (COMPOSE_FILE en .env) Postgres necesita sus contraseñas antes de arrancar.
+case "${COMPOSE_FILE:-}" in
+  *cloud*)
+    touch .env
+    for k in POSTGRES_PASSWORD FORGEJO_DB_PASSWORD BYOX_DB_PASSWORD; do
+      if [ -z "${!k:-}" ]; then
+        v="$(rand 32)"
+        printf '%s=%s\n' "$k" "$v" >> .env
+        export "$k=$v"
+      fi
+    done
+    ;;
+esac
+
 echo "→ Levantando Forgejo"
 docker compose up -d forgejo
 until curl -fs http://localhost:3000/api/healthz >/dev/null 2>&1; do sleep 1; done

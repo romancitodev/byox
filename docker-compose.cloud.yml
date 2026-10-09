@@ -1,0 +1,58 @@
+# Para un servidor: Forgejo y el MCP guardan su estado en Postgres en vez de SQLite y archivos JSON.
+# Se suma al compose de siempre. Lo más cómodo es dejarlo en el .env (setup.sh lo respeta):
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.cloud.yml
+#
+# setup.sh genera las tres contraseñas de abajo si faltan. Si las elegís vos, que no tengan
+# caracteres raros (van dentro de una URL): letras y números.
+#
+# Ojo: Forgejo elige la base la primera vez que arranca. Para pasar una instalación que ya
+# existe (SQLite) a Postgres hay que hacer `forgejo dump` y restaurar; mejor hacerlo antes de
+# tener usuarios. El estado del MCP (sesiones, tokens, resultados) no se migra: la gente
+# vuelve a iniciar sesión y crea sus tokens de nuevo.
+#
+# Backup (una línea en el cron del servidor):
+#   docker compose exec -T postgres pg_dumpall -U postgres | gzip > /backup/byox-$(date +%F).sql.gz
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta POSTGRES_PASSWORD en .env}
+      # Los lee scripts/init-db.sh al crear el volumen por primera vez.
+      FORGEJO_DB_PASSWORD: ${FORGEJO_DB_PASSWORD:?Falta FORGEJO_DB_PASSWORD en .env}
+      BYOX_DB_PASSWORD: ${BYOX_DB_PASSWORD:?Falta BYOX_DB_PASSWORD en .env}
+    # Pensado para una VPS chica.
+    command: postgres -c shared_buffers=128MB -c max_connections=60
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 30
+    # Sin puertos publicados: sólo se llega desde la red de compose.
+    networks: [byox]
+
+  forgejo:
+    environment:
+      FORGEJO__database__DB_TYPE: postgres
+      FORGEJO__database__HOST: postgres:5432
+      FORGEJO__database__NAME: forgejo
+      FORGEJO__database__USER: forgejo
+      FORGEJO__database__PASSWD: ${FORGEJO_DB_PASSWORD}
+      FORGEJO__database__SSL_MODE: disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  mcp:
+    environment:
+      DATABASE_URL: postgres://byox:${BYOX_DB_PASSWORD}@postgres:5432/byox
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:

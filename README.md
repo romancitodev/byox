@@ -113,6 +113,23 @@ Límite conocido: el bot `byox` es colaborador de todos los repos de alumnos y s
 va como secreto de Actions, así que una instancia compartida no está aislada entre
 desconocidos. Úsala con equipos y aulas de confianza.
 
+## En un servidor: Postgres
+
+Por defecto Forgejo usa SQLite y el MCP guarda su estado (sesiones, tokens, invitaciones,
+resultados) en archivos JSON de `BYOX_DATA`: no hace falta nada más. Para un servidor,
+`docker-compose.cloud.yml` pasa los dos a Postgres (una base y un usuario por servicio).
+En el `.env`:
+
+```bash
+COMPOSE_FILE=docker-compose.yml:docker-compose.cloud.yml
+```
+
+y corré `./setup.sh`, que genera las contraseñas de la base. Sin ese archivo el MCP sigue
+con archivos; con `DATABASE_URL` en su entorno usa Postgres (tabla `kv`, se crea sola).
+Forgejo elige la base al arrancar por primera vez: para mover una instalación que ya
+existe hay que hacer `forgejo dump` y restaurar. Las instrucciones de backup están al
+principio de `docker-compose.cloud.yml`.
+
 ## Cómo funciona
 
 ```
