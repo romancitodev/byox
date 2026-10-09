@@ -917,7 +917,7 @@ body { background-image: radial-gradient(var(--grid-dot) 1px, transparent 1px); 
 .btn { border-color: var(--line-strong); box-shadow: var(--sh-1); transition: background .12s, border-color .12s, transform .08s, box-shadow .12s; }
 .btn:hover { background: var(--sunk); border-color: color-mix(in srgb, var(--ink) 40%, var(--line-strong)); }
 .btn:active { transform: translateY(1px); box-shadow: none; }
-.btn.primary { background: var(--ember-btn); border-color: var(--ember-btn-hover); color: #fff; font-weight: 600; box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 1px 2px rgba(0,0,0,.2); }
+.btn.primary { background: var(--ember-btn); border-color: var(--ember-btn-line); color: #fff; font-weight: 600; box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 1px 2px rgba(0,0,0,.2); }
 .btn.primary:hover { opacity: 1; background: var(--ember-btn-hover); }
 :root[data-theme="dark"] .btn.primary { color: #1a0a02; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #1a0a02; } }
