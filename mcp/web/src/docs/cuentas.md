@@ -36,11 +36,15 @@ Hay dos: administrador y usuario. El rol sale de la marca de administrador de la
 
 | | Usuario | Administrador |
 |---|---|---|
-| Ver el catálogo de cursos | Sí | Sí |
+| Ver los cursos públicos, empezarlos y darles estrella | Sí | Sí |
+| Ver los cursos privados de otras cuentas | No | Sí |
+| Publicar o volver privado un curso | Solo los suyos | Todos |
 | Empezar cursos y tener su propio progreso | Sí | Sí |
 | Crear tokens y cambiar su contraseña | Sí | Sí |
 | Crear códigos de invitación | No | Sí (con `BYOX_SIGNUP=invite`) |
 | Escribir, verificar e importar cursos | Solo con `BYOX_AUTHORS=all` | Sí |
+
+Un curso nuevo es privado hasta que su dueño lo publica; ver [Visibilidad y estrellas](/docs/cursos). Con `BYOX_AUTHORS=all`, cada cuenta solo puede modificar, verificar y exportar los cursos que creó.
 
 Escribir, verificar e importar cursos ejecuta código en Docker, por eso está restringido por defecto. Solo pon `BYOX_AUTHORS=all` si confías en todas las cuentas de la instancia.
 

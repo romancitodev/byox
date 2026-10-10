@@ -4,6 +4,7 @@ import { extname } from "node:path";
 import { brotliCompressSync, constants as zc, gzipSync } from "node:zlib";
 import { parse } from "yaml";
 import { HttpError, type Auth } from "./auth.js";
+import type { Catalog, CourseAccess } from "./catalog.js";
 import { isVerified, loadSource } from "./course.js";
 import type { Forgejo } from "./forgejo.js";
 import { startCourse, upgradeCourse } from "./instance.js";
@@ -59,10 +60,23 @@ function send(res: ServerResponse, status: number, headers: Record<string, strin
 const json = (res: ServerResponse, data: unknown, status = 200) =>
   send(res, status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }, JSON.stringify(data));
 
+async function readBody(req: IncomingMessage): Promise<Record<string, any>> {
+  let raw = "";
+  for await (const chunk of req) {
+    raw += chunk;
+    if (raw.length > 16_384) throw new HttpError(413, "Demasiado grande.");
+  }
+  try {
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    throw new HttpError(400, "El cuerpo no es JSON.");
+  }
+}
+
 /** Un segmento «..» sube de carpeta; un nombre que solo lo contiene (como `_..abc.css`) es válido. */
 const hasDotDot = (p: string) => p.split(/[\/]/).some((seg) => seg === ".." || /^%2e%2e$/i.test(seg));
 
-export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients: Clients, auth: Auth, onProgress: (user: string) => void, usage: Usage) {
+export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients: Clients, auth: Auth, onProgress: (user: string) => void, usage: Usage, catalog: Catalog) {
   const scopes = new Map<string, ReturnType<typeof scope>>();
   const forUser = (user: string) => {
     let s = scopes.get(user);
@@ -107,21 +121,40 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
   };
   let statsCache: { at: number; stats: Stats } | undefined;
 
-  /** Estructura del curso: la del repo del alumno si arrancó, si no la del repo fuente. */
+  /**
+   * Estructura del curso: la del repo del alumno si arrancó, si no la del repo fuente.
+   * Sólo si el curso es visible para quien mira. Si lo empezó pero ya no lo ve (se volvió privado), se le sigue
+   * mostrando lo suyo, leído de su propio repo y nada del repo fuente (`access` null).
+   */
   const structure = (slug: string) => cached(`s:${slug}`, 3000, () => structureOf(slug));
   async function structureOf(slug: string) {
-    const started = !!(await fj.find(`/repos/${owner}/${slug}`));
-    const yaml = await fj.raw(cfg.org, slug, "course.yaml").catch(() => null);
+    const [access, started] = await Promise.all([catalog.access(owner, slug), fj.find(`/repos/${owner}/${slug}`).then((r) => !!r)]);
+    if (!access && !started) return null;
+    const yaml = access ? await fj.raw(cfg.org, slug, "course.yaml").catch(() => null) : null;
     const source = yaml ? parse(yaml.toString("utf8")) : null;
-    const course = started
-      ? JSON.parse((await fj.raw(owner, slug, ".course/course.json")).toString("utf8"))
-      : source;
+    let course = source;
+    if (started) {
+      // Un repo tuyo con el mismo nombre que no es de un curso de byox (o está roto) no cuenta como curso empezado.
+      course = await fj.raw(owner, slug, ".course/course.json").then((b) => JSON.parse(b.toString("utf8"))).catch(() => null);
+      if (!course) return null;
+    }
     if (!course) return null;
     // Quién lo escribió sale del repo fuente: el repo del alumno puede ser de antes de que existiera el campo.
     if (source && started) Object.assign(course, { origin: source.origin, author: source.author });
     const hints = new Map<number, number>((source?.issues ?? []).map((i: any) => [i.id, i.hints?.length ?? 0]));
-    return { started, course, source, hints };
+    return { started, course, source, hints, access };
   }
+
+  /** Lo que se muestra de la visibilidad y las estrellas de un curso. Sin acceso (curso que se volvió privado) no hay nada. */
+  const social = (access: CourseAccess | null | undefined, starred: Set<string>, slug: string) => ({
+    visibility: access ? (access.public ? "public" : "private") : null,
+    stars: access?.stars ?? 0,
+    starred: starred.has(slug),
+    canWrite: !!access?.write,
+    canManage: !!access?.manage,
+    // Puede empezarlo (o traer lo nuevo) sólo si lo ve.
+    canStart: !!access,
+  });
 
   const issueStates = (slug: string) => cached(`i:${slug}`, 2000, () => issueStatesOf(slug));
   async function issueStatesOf(slug: string) {
@@ -136,11 +169,14 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
         ? "ready"
         : "locked";
 
+  /** El catálogo de quien mira: los públicos, los suyos (privados incluidos) y los que ya empezó. */
   async function courses() {
-    const repos = await fj.all<any>(`/orgs/${cfg.org}/repos`);
+    const [names, starred] = await Promise.all([catalog.names(), catalog.starred(owner)]);
+    const structs = await Promise.all(names.map((n) => structure(n).catch(() => null)));
+    const visible = names.flatMap((name, k) => (structs[k] ? [{ name, s: structs[k]! }] : []));
     return Promise.all(
-      repos.map(async (r) => {
-        const s = await structure(r.name).catch(() => null);
+      visible.map(async ({ name, s }) => {
+        const r = { name, description: s.access?.description ?? "", updated_at: s.access?.updatedAt ?? "" };
         let done = 0;
         let newStages = 0;
         const failing: any[] = [];
@@ -178,6 +214,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
           newStages,
           updatedAt: r.updated_at,
           failing,
+          ...social(s.access, starred, name),
         };
       }),
     );
@@ -186,6 +223,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
   async function course(slug: string) {
     const s = await structure(slug);
     if (!s) return null;
+    const starred = await catalog.starred(owner);
     const byNum = s.started ? await issueStates(slug) : new Map();
     const issues = await Promise.all(s.course.issues.map(async (i: any) => {
       const gh = byNum.get(i.id);
@@ -218,13 +256,15 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
       cloneUrl: `${cfg.publicUrl}/${owner}/${slug}.git`,
       repoUrl: `${cfg.publicUrl}/${owner}/${slug}`,
       sourceUrl: `${cfg.publicUrl}/${cfg.org}/${slug}`,
+      ...social(s.access, starred, slug),
     };
   }
 
-  /** El README del curso renderizado: el de tu repo si lo empezaste, si no el del repo fuente. */
+  /** El README del curso renderizado: el de tu repo si lo empezaste, si no el del repo fuente (si lo puedes ver). */
   async function readme(slug: string) {
-    const started = !!(await fj.find(`/repos/${owner}/${slug}`));
-    const repoOwner = started ? owner : cfg.org;
+    const s = await structure(slug);
+    if (!s) throw new HttpError(404, "No existe ese curso");
+    const repoOwner = s.started ? owner : cfg.org;
     const branch = await fj.find<any>(`/repos/${repoOwner}/${slug}/branches/main`);
     const key = `readme:${repoOwner}/${slug}@${branch?.commit?.id}`;
     let html = bodyCache.get(key);
@@ -341,7 +381,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
 
   async function stats() {
     if (!statsCache || Date.now() - statsCache.at > 60_000) {
-      statsCache = { at: Date.now(), stats: await computeStats(fj, cfg) };
+      statsCache = { at: Date.now(), stats: await computeStats(fj, cfg, catalog) };
     }
     return statsCache.stats;
   }
@@ -434,7 +474,17 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
         await w.askHint(r[1], Number(r[2]));
         return json(res, { ok: true }), true;
       }
+      if (req.method === "PUT" && (r = m(/^\/api\/courses\/([^/]+)\/visibility$/))) {
+        const b = await readBody(req);
+        if (typeof b.public !== "boolean") return json(res, { error: "Falta `public`: true para publicarlo, false para volverlo privado." }, 400), true;
+        const a = await catalog.setPublic(who.user, r[1], b.public);
+        return json(res, { ok: true, visibility: a.public ? "public" : "private", stars: a.stars }), true;
+      }
+      if ((req.method === "PUT" || req.method === "DELETE") && (r = m(/^\/api\/courses\/([^/]+)\/star$/))) {
+        return json(res, { ok: true, ...(await catalog.star(who.user, r[1], req.method === "PUT")) }), true;
+      }
       if (req.method === "POST" && (r = m(/^\/api\/courses\/([^/]+)\/start$/))) {
+        await catalog.need(who.user, r[1], "see");
         const src = await loadSource(fj, base.org, r[1]);
         if (src.errors.length) return json(res, { error: src.errors.join("\n") }, 400), true;
         if (!(await isVerified(fj, base.org, r[1], src.sha))) {
@@ -447,6 +497,8 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
         return json(res, { ok: true }), true;
       }
       if (req.method === "POST" && (r = m(/^\/api\/courses\/([^/]+)\/upgrade$/))) {
+        // Si el curso volvió a ser privado y no es tuyo, ya no se puede traer lo nuevo.
+        await catalog.need(who.user, r[1], "see");
         const src = await loadSource(fj, base.org, r[1]);
         if (src.errors.length) return json(res, { error: src.errors.join("\n") }, 400), true;
         if (!(await isVerified(fj, base.org, r[1], src.sha))) {

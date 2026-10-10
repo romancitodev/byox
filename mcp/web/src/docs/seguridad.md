@@ -19,7 +19,8 @@ Si la instancia es tuya y de gente de confianza, sigue la lista de endurecimient
 ## Qué protege byox
 
 - **Todo exige una cuenta.** La API y el servidor MCP rechazan con `401` cualquier petición sin sesión o token válidos.
-- **Cada persona ve lo suyo.** El progreso, la racha y los repositorios de alumno son por usuario. El catálogo de cursos es común a la instancia.
+- **Cada persona ve lo suyo.** El progreso, la racha y los repositorios de alumno son por usuario. En el catálogo, cada cuenta ve los cursos públicos y los suyos: un curso nuevo es privado hasta que su dueño lo publica, y la decisión la toma Forgejo (visibilidad y permisos del repositorio fuente).
+- **Un curso solo lo modifica su dueño.** Escribir, verificar y exportar un curso exige permiso de escritura sobre su repositorio fuente; la exportación y `read_course` llevan la carpeta `solution/`, por eso no están disponibles para quien solo lo cursa.
 - **Las contraseñas no pasan por byox para guardarse.** Se validan contra Forgejo; byox solo guarda sesiones y la huella de los tokens.
 - **Los tokens se guardan como huella SHA-256** y se pueden revocar. El valor completo se muestra una sola vez.
 - **Las sesiones usan cookies `HttpOnly` y `SameSite=Lax`.** Las peticiones que modifican datos y llegan con cookie deben venir del mismo origen.

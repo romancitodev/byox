@@ -610,6 +610,7 @@ function mcpDialog() {
       <li><code>write_course_files</code> ${t("y")} <code>validate_course</code>: ${t("escribir un curso y revisar su formato y su grafo.")}</li>
       <li><code>verify_course</code>: ${t("ejecutar los tests contra el esqueleto y la solución de referencia.")}</li>
       <li><code>start_course</code>: ${t("publicar tu repositorio del curso.")}</li>
+      <li><code>set_course_visibility</code> ${t("y")} <code>star_course</code>: ${t("publicar un curso o volverlo privado (nacen privados) y darle una estrella.")}</li>
     </ul>
     <h3>${t("Comandos en Claude Code")}</h3>
     <ul class="tools">
@@ -659,6 +660,81 @@ const courseState = (c) =>
         : `<span class="badge on">${t("En curso")}</span>`;
 const fakeIssues = (c) => Array.from({ length: c.total }, (_, k) => ({ n: k + 1, state: k < c.done ? "done" : "locked" }));
 
+/** Un curso es privado hasta que su dueño lo publica. Sin visibilidad (lo empezaste y dejó de ser visible) no hay insignia. */
+const visBadge = (c) =>
+  c.visibility === "public"
+    ? `<span class="badge vis pub" title="${t("Cualquier cuenta de esta instancia lo ve y puede empezarlo")}">${ic("globe")}${t("Público")}</span>`
+    : c.visibility === "private"
+      ? `<span class="badge vis" title="${t("Solo lo ven quienes lo administran")}">${ic("lock")}${t("Privado")}</span>`
+      : "";
+
+/** La estrella de Forgejo de tu cuenta sobre el curso, con el total. Dentro de una tarjeta (un link) no puede ser un botón. */
+const starBtn = (c, cls = "") =>
+  `<span class="star ${cls}${c.starred ? " on" : ""}" role="button" tabindex="0" data-star="${esc(c.slug)}" aria-pressed="${!!c.starred}" title="${c.starred ? t("Quitar tu estrella") : t("Dar una estrella")}">${ic("star")}<b class="tnum">${c.stars ?? 0}</b></span>`;
+
+async function toggleStar(slug) {
+  const known = S.courses?.find((c) => c.slug === slug) ?? (ctx?.course?.slug === slug ? ctx.course : null);
+  const on = !known?.starred;
+  try {
+    const r = await api(`/courses/${encodeURIComponent(slug)}/star`, { method: on ? "PUT" : "DELETE" });
+    for (const c of [S.courses?.find((c) => c.slug === slug), ctx?.course?.slug === slug ? ctx.course : null]) {
+      if (c) Object.assign(c, { starred: r.starred, stars: r.stars });
+    }
+    document.querySelectorAll(`[data-star="${CSS.escape(slug)}"]`).forEach((el) => {
+      el.classList.toggle("on", r.starred);
+      el.setAttribute("aria-pressed", String(r.starred));
+      el.title = r.starred ? t("Quitar tu estrella") : t("Dar una estrella");
+      el.querySelector("b").textContent = r.stars;
+    });
+  } catch (e) {
+    toast(e.message, "circle-x");
+  }
+}
+
+/** Publicar o volver privado un curso. Publicarlo pide confirmación: su solución queda a la vista de todas las cuentas. */
+function visibilityDialog(slug, makePublic, stars = 0) {
+  const apply = async (btn, d) => {
+    btn.disabled = true;
+    try {
+      await api(`/courses/${encodeURIComponent(slug)}/visibility`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ public: makePublic }) });
+      d?.close();
+      S.courses = null;
+      ctx = null;
+      toast(makePublic ? t("Curso publicado") : t("Curso vuelto privado"));
+      route();
+    } catch (e) {
+      btn.disabled = false;
+      d?.close();
+      toast(e.message, "circle-x");
+    }
+  };
+  const d = dialog(
+    makePublic
+      ? `<h2>${t("Publicar el curso")}</h2>
+         <p>${t("Cualquier cuenta de esta instancia va a poder verlo, empezarlo y darle una estrella.")}</p>
+         <p class="note warn">${ic("triangle-alert")}${t("Su repositorio fuente pasa a ser público en Forgejo, con la carpeta {sol} incluida: quien lo mire verá las soluciones.", { sol: "<code>solution/</code>" })}</p>
+         <div class="actions"><button class="btn primary" id="vis-ok">${ic("globe")}${t("Publicar")}</button><button class="btn" data-close>${t("Cancelar")}</button></div>`
+      : `<h2>${t("Volver el curso privado")}</h2>
+         <p>${t("Dejará de aparecer en el catálogo de las demás cuentas. Quienes ya lo empezaron conservan su repositorio y su progreso, pero no podrán traer cambios nuevos.")}</p>
+         ${stars ? `<p class="note warn">${ic("triangle-alert")}${t("Forgejo borra las estrellas de las demás cuentas cuando un curso deja de ser público: perderá {n} y no se pueden recuperar.", { n: plural(stars, "estrella", "estrellas") })}</p>` : ""}
+         <div class="actions"><button class="btn primary" id="vis-ok">${ic("lock")}${t("Volver privado")}</button><button class="btn" data-close>${t("Cancelar")}</button></div>`,
+  );
+  d.el.querySelector("[data-close]").onclick = d.close;
+  d.el.querySelector("#vis-ok").onclick = (e) => apply(e.currentTarget, d);
+}
+
+/** Para el dueño: en qué estado está el curso y el botón para cambiarlo. */
+function visPanel(c) {
+  if (!c.canManage) return "";
+  const pub = c.visibility === "public";
+  return `<div class="card vis-panel"><div class="card-h"><span>${t("Visibilidad")}</span>${visBadge(c)}</div><div class="card-b">
+    <p class="muted" style="margin:0 0 12px">${pub
+      ? t("Cualquier cuenta de esta instancia lo ve, lo puede empezar y darle una estrella.")
+      : t("Solo lo ves tú y los administradores. Cuando esté verificado, publícalo para que otras personas lo vean y le den una estrella.")}</p>
+    <button class="btn${pub ? "" : " primary"}" data-act="visibility" data-slug="${esc(c.slug)}" data-public="${!pub}" data-stars="${c.stars ?? 0}">${ic(pub ? "lock" : "globe")}${pub ? t("Volver privado") : t("Publicar curso")}</button>
+  </div></div>`;
+}
+
 function courseRow(c) {
   return `<tr data-href="${A}/c/${esc(c.slug)}">
     <td><div class="t1">${esc(c.title)} ${originBadge(c)}</div><div class="t2">${langTag(c)}<span class="desc" title="${esc(c.description)}">${esc(clip(c.description, 90))}</span></div></td>
@@ -674,12 +750,12 @@ const coursesTable = (rows) =>
 function courseCard(c) {
   const cta = !c.started ? t("Ver el curso") : c.done === c.total ? t("Repasar") : t("Continuar");
   return `<a class="ccard" href="${A}/c/${esc(c.slug)}" data-link>
-    <div class="ccard-top">${langTag(c)}<span class="tags">${originBadge(c)}${courseState(c)}</span></div>
+    <div class="ccard-top">${langTag(c)}<span class="tags">${originBadge(c)}${visBadge(c)}${courseState(c)}</span></div>
     <h3>${esc(c.title)}</h3>
     <p>${esc(clip(c.description, 140))}</p>
     ${c.topics?.length ? `<div class="topics">${c.topics.slice(0, 3).map((t) => `<span>${esc(t)}</span>`).join("")}</div>` : ""}
     <div class="ccard-foot"><div class="prog">${c.total ? segsOf(c) : ""}<span class="tnum muted">${c.started ? `${c.done}/${c.total}` : plural(c.total, "etapa", "etapas")}</span></div>
-      <span class="go">${cta} ${ic("arrow-right")}</span></div>
+      ${starBtn(c)}<span class="go">${cta} ${ic("arrow-right")}</span></div>
   </a>`;
 }
 
@@ -724,14 +800,29 @@ function eventRow(e) {
 async function coursesPage() {
   shell("courses", crumb([{ label: t("Cursos") }]), "", loading);
   await loadGlobals();
-  const courses = [...S.courses].sort((a, b) => Number(b.started) - Number(a.started) || a.title.localeCompare(b.title));
+  // Los que empezaste primero; después, los de más estrellas.
+  const courses = [...S.courses].sort((a, b) => Number(b.started) - Number(a.started) || (b.stars ?? 0) - (a.stars ?? 0) || a.title.localeCompare(b.title));
+  const filters = [
+    ["all", t("Todos"), () => true],
+    ["public", t("Públicos"), (c) => c.visibility === "public"],
+    ["mine", t("Míos"), (c) => c.canWrite],
+    ["starred", t("Con mi estrella"), (c) => c.starred],
+  ];
+  const cur = filters.some(([k, , f]) => k === S.catFilter && (k === "all" || courses.some(f))) ? S.catFilter : "all";
+  const shown = courses.filter(filters.find(([k]) => k === cur)[2]);
+  const empties = {
+    public: t("Todavía no hay cursos públicos."),
+    mine: t("No tienes cursos propios. Los que crees con tu asistente, desde una plantilla o importando un código aparecen acá, privados hasta que los publiques."),
+    starred: t("Aún no diste ninguna estrella. Toca la estrella de un curso que te haya servido."),
+  };
   shell(
     "courses",
     crumb([{ label: t("Cursos") }]),
     "",
     `<div class="wrap"><div class="phead"><div><h1>${t("Cursos")}</h1><p>${t("{n}. Puedes crear más con tu asistente, desde una plantilla o importando un código.", { n: plural(courses.length, "curso disponible", "cursos disponibles") })}</p></div>
       <div class="phead-actions"><button class="btn" data-act="import">${ic("upload")}${t("Importar")}</button><button class="btn primary" data-act="new-course">${ic("plus")}${t("Nuevo curso")}</button></div></div>
-      ${courses.length ? `<div class="cgrid">${courses.map(courseCard).join("")}</div>` : `<div class="card">${noCourses()}</div>`}
+      ${courses.length > 1 ? `<div class="tabs" role="tablist">${filters.map(([k, label, f]) => `<button class="tab${k === cur ? " on" : ""}" role="tab" aria-selected="${k === cur}" data-cfilter="${k}">${label}<span class="cnt tnum">${courses.filter(f).length}</span></button>`).join("")}</div>` : ""}
+      ${shown.length ? `<div class="cgrid">${shown.map(courseCard).join("")}</div>` : courses.length ? `<div class="card"><div class="card-b muted">${empties[cur]}</div></div>` : `<div class="card">${noCourses()}</div>`}
       ${newCourseCard(true)}</div>`,
   );
 }
@@ -781,11 +872,11 @@ function notStarted(c) {
     "course",
     crumb([{ label: t("Cursos"), href: `${A}/cursos` }, { label: esc(c.title) }]),
     "",
-    `<div class="wrap" style="max-width:720px"><div class="phead"><div><h1>${esc(c.title)}</h1>${originBadge(c) ? `<p class="ph-meta">${originBadge(c)}${c.author ? `<span>${t("por {name}", { name: esc(c.author) })}</span>` : ""}</p>` : ""}<p>${esc(c.description)}</p></div></div>
+    `<div class="wrap" style="max-width:720px"><div class="phead"><div><h1>${esc(c.title)}</h1><p class="ph-meta">${originBadge(c)}${visBadge(c)}${c.author ? `<span>${t("por {name}", { name: esc(c.author) })}</span>` : ""}${starBtn(c, "inline")}</p><p>${esc(c.description)}</p></div></div>
       <div class="card"><div class="card-b">
         <p style="margin:0 0 14px">${t("Al empezar se crea tu repositorio privado con {n}, sus dependencias y los tests.", { n: plural(c.issues.length, "etapa", "etapas") })}</p>
-        <div class="actions"><button class="btn primary" id="startBtn">${t("Empezar el curso")}</button><button class="btn" data-act="share" data-slug="${esc(c.slug)}">${ic("share-2")}${t("Compartir")}</button><span class="muted" id="startMsg"></span></div>
-      </div></div><div class="md readme" id="md"></div></div>`,
+        <div class="actions"><button class="btn primary" id="startBtn">${t("Empezar el curso")}</button>${c.canWrite ? `<button class="btn" data-act="share" data-slug="${esc(c.slug)}">${ic("share-2")}${t("Compartir")}</button>` : ""}<span class="muted" id="startMsg"></span></div>
+      </div></div>${visPanel(c)}<div class="md readme" id="md"></div></div>`,
   );
   loadReadme(c.slug).then((html) => {
     const md = document.getElementById("md");
@@ -831,6 +922,7 @@ function runChip() {
 function courseActions() {
   return `${mcpChip()}<span id="run-chip">${runChip()}</span>
     <a class="chip" href="${esc(ctx.course.repoUrl)}" target="_blank" rel="noopener" title="${t("Abrir el repositorio en Forgejo")}">${ic("git-branch")}Repo</a>
+    ${ctx.course.canStart === false ? "" : starBtn(ctx.course, "chip")}
     ${flameChip()}`;
 }
 
@@ -2136,6 +2228,8 @@ function verifyChip(v) {
 
 let authorPoll = null;
 const stopAuthorPoll = () => clearTimeout(authorPoll);
+/** Lo de /author llega como `public`; la insignia y el panel leen `visibility`. */
+const authorVis = (c) => ({ slug: c.slug, visibility: c.public ? "public" : "private", canManage: c.canManage, stars: c.stars });
 
 async function authoredPage() {
   stopAuthorPoll();
@@ -2145,6 +2239,7 @@ async function authoredPage() {
     .map((c) => `<tr data-href="${A}/creados/${esc(c.slug)}">
       <td><div class="t1">${esc(courseName(c.title))} ${originBadge(c)}</div><div class="t2 mono">${esc(c.slug)}</div></td>
       <td>${verifyChip(c.verify)}</td>
+      <td>${visBadge(authorVis(c))}<span class="t2 stars-n">${ic("star")}${c.stars}</span></td>
       <td class="t2">${c.verify.problems ? plural(c.verify.problems, "problema", "problemas") : "—"}</td>
       <td class="t2">${ago(c.updatedAt)}</td></tr>`)
     .join("");
@@ -2155,7 +2250,7 @@ async function authoredPage() {
     `<div class="wrap"><div class="phead"><div><h1>${t("Creados")}</h1><p>${t("Los cursos que escribiste tú o tu asistente. Cada push a su repositorio fuente se verifica automáticamente.")}</p></div>
       <div class="phead-actions"><button class="btn" data-act="import">${ic("upload")}${t("Importar")}</button><button class="btn primary" data-act="new-course">${ic("plus")}${t("Nuevo curso")}</button></div></div>
       <div class="card">${rows
-        ? `<table class="table"><thead><tr><th>${t("Curso")}</th><th>${t("Verificación")}</th><th>${t("Problemas")}</th><th>${t("Último cambio")}</th></tr></thead><tbody>${rows}</tbody></table>`
+        ? `<table class="table"><thead><tr><th>${t("Curso")}</th><th>${t("Verificación")}</th><th>${t("Visibilidad")}</th><th>${t("Problemas")}</th><th>${t("Último cambio")}</th></tr></thead><tbody>${rows}</tbody></table>`
         : `${empty("courses", t("Aún no creaste cursos"), t("Empieza desde una plantilla, importa un código o pídeselo a tu asistente."))}`}</div></div>`,
   );
   if (list.some((c) => c.verify.busy || c.verify.state === "pending")) {
@@ -2183,7 +2278,7 @@ async function authorPage(slug, quiet = false) {
     : "";
   const body = `<div class="wrap" style="max-width:960px">
     <div class="phead"><div><h1>${esc(title)}</h1>
-      <p class="ph-meta">${originBadge(c)}<span class="mono">${esc(c.slug)}</span>${c.image ? langTag({ lang: language(c.image) }) : ""}<span>${plural(c.issues, "etapa", "etapas")} · ${plural(c.milestones, "tramo", "tramos")}</span></p></div>
+      <p class="ph-meta">${originBadge(c)}${visBadge(authorVis(c))}<span class="mono">${esc(c.slug)}</span>${c.image ? langTag({ lang: language(c.image) }) : ""}<span>${plural(c.issues, "etapa", "etapas")} · ${plural(c.milestones, "tramo", "tramos")}</span><span class="stars-n">${ic("star")}${c.stars}</span></p></div>
       <div class="phead-actions">
         <button class="btn" data-act="verify" data-slug="${esc(c.slug)}" ${v.busy ? "disabled" : ""}>${ic("refresh-cw")}${t("Verificar ahora")}</button>
         <button class="btn" data-act="share" data-slug="${esc(c.slug)}">${ic("share-2")}${t("Compartir")}</button>
@@ -2202,6 +2297,7 @@ async function authorPage(slug, quiet = false) {
         ${c.warnings.length ? `<ul class="problems warn">${c.warnings.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}</div></div>` : ""}
     </section>
     <aside>
+      ${visPanel(authorVis(c))}
       <div class="card"><div class="card-h"><span>${t("Editar el curso")}</span><a href="${esc(c.sourceUrl)}" target="_blank" rel="noopener">${t("Repositorio")}</a></div><div class="card-b steps-box">
         <p>${t("1. Clona el repositorio fuente:")}</p>${cmdBox(`git clone ${c.cloneUrl}`)}
         <p>${t("2. Comprueba tus cambios antes de subirlos:")}</p>${cmdBox("byox check")}
@@ -2502,7 +2598,27 @@ async function routeInner() {
   }
 }
 
+// La estrella vive dentro de las tarjetas (que son links): tiene que ganarle al link, con el mouse y con el teclado.
+document.addEventListener("keydown", (e) => {
+  const st = e.target.closest?.("[data-star]");
+  if (st && (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault();
+    toggleStar(st.dataset.star);
+  }
+});
+
 document.addEventListener("click", (e) => {
+  const star = e.target.closest("[data-star]");
+  if (star) {
+    e.preventDefault();
+    e.stopPropagation();
+    return toggleStar(star.dataset.star);
+  }
+  const cf = e.target.closest("[data-cfilter]");
+  if (cf) {
+    S.catFilter = cf.dataset.cfilter;
+    return coursesPage();
+  }
   const a = e.target.closest("a[data-link]");
   if (a && !e.metaKey && !e.ctrlKey && e.button === 0) {
     e.preventDefault();
@@ -2520,6 +2636,10 @@ document.addEventListener("click", (e) => {
   if (act === "new-course") newCourseDialog();
   if (act === "share") shareDialog(e.target.closest("[data-slug]").dataset.slug);
   if (act === "verify") verifyNow(e.target.closest("[data-slug]").dataset.slug);
+  if (act === "visibility") {
+    const b = e.target.closest("[data-slug]");
+    visibilityDialog(b.dataset.slug, b.dataset.public === "true", Number(b.dataset.stars) || 0);
+  }
   const lg = e.target.closest("[data-lang]");
   if (lg) {
     e.preventDefault();

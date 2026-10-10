@@ -75,6 +75,8 @@ Cada cuenta tiene un cupo de llamadas al MCP por semana (50 por defecto; los adm
 | `validate_course` | Revisa el formato, el grafo y los archivos. Es rápido y no corre tests. |
 | `verify_course` | Corre los tests contra el esqueleto (deben fallar) y contra la solución (deben pasar). Puede tardar varios minutos. |
 | `export_course` / `import_course` | Comparte un curso como código `byox1-…` o importa uno. |
+| `set_course_visibility` | Publica un curso o lo vuelve privado. Los cursos nuevos son privados; solo su dueño o un administrador puede cambiarlo, y para publicar el commit tiene que estar verificado. |
+| `star_course` | Da o saca tu estrella en un curso que puedes ver. |
 | `start_course` | Publica tu repositorio del curso. Exige un commit verificado. |
 | `upgrade_course` | Trae a tu repositorio lo nuevo del curso sin perder progreso. |
 

@@ -65,8 +65,11 @@ Los errores devuelven un cuerpo `{ "error": "mensaje" }` y el código HTTP corre
 
 | Método y ruta | Descripción |
 |---|---|
-| `GET /api/courses` | El catálogo, con tu progreso en cada curso y los tests que fallan. |
-| `GET /api/courses/:slug` | Un curso: tramos, etapas con su estado y resultado, y URL de clonado. |
+| `GET /api/courses` | El catálogo que ves tú (los públicos, los tuyos y los que ya empezaste), con tu progreso, los tests que fallan y, en cada curso, `visibility` (`public` o `private`), `stars`, `starred`, `canWrite` y `canManage`. |
+| `GET /api/courses/:slug` | Un curso: tramos, etapas con su estado y resultado, URL de clonado y los mismos campos de visibilidad y estrellas. `404` si no lo ves. |
+| `PUT /api/courses/:slug/visibility` | `{ public: true \| false }`. Publica el curso o lo vuelve privado. Solo su dueño o un administrador (`403` si no); para publicar, el último commit tiene que estar verificado (`400`). Al volverlo privado se borran las estrellas ajenas. |
+| `PUT /api/courses/:slug/star` | Da tu estrella al curso. Responde `{ starred, stars }`. |
+| `DELETE /api/courses/:slug/star` | Saca tu estrella. |
 | `GET /api/courses/:slug/status` | El último push: commit, estado del CI y resultado por etapa. |
 | `GET /api/courses/:slug/readme` | La portada del curso, ya renderizada a HTML. |
 | `GET /api/courses/:slug/issues/:n` | Una etapa: consigna, pistas pedidas, actividad y último resultado con el log. |

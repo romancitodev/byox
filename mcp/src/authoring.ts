@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 import { brotliCompressSync, brotliDecompressSync, constants } from "node:zlib";
 import { parse } from "yaml";
 import { z } from "zod";
+import { HttpError } from "./auth.js";
+import type { Catalog } from "./catalog.js";
 import { loadSource, sourceFromFiles, VERIFY_CONTEXT } from "./course.js";
 import type { Forgejo } from "./forgejo.js";
 import { notify } from "./notify.js";
@@ -36,11 +38,7 @@ const MAX_BUNDLE = 64 * 1024 * 1024;
 const MAX_FILES = 5000;
 const TEMPLATES_DIR = new URL("../assets/templates/", import.meta.url);
 
-export class HttpError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
+export { HttpError };
 
 // ── Código de un curso ───────────────────────────────────────────────────────
 
@@ -133,7 +131,7 @@ async function templateFiles(lang: string, vars: Record<string, string>): Promis
 
 // ── El módulo ────────────────────────────────────────────────────────────────
 
-export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier) {
+export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier, catalog: Catalog) {
   const org = cfg.org;
   const sourceUrl = (slug: string) => `${cfg.publicUrl}/${org}/${slug}`;
   const exists = async (slug: string) => !!(await fj.find(`/repos/${org}/${slug}`));
@@ -144,7 +142,8 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
     }
   }
 
-  async function createRepo(slug: string, description: string, by: string | undefined, how: string) {
+  /** Un curso nuevo nace privado, y quien lo crea queda como dueño: puede editarlo, verificarlo y publicarlo. */
+  async function createRepo(slug: string, description: string, by: string, how: string) {
     await fj.req("POST", `/orgs/${org}/repos`, {
       name: slug,
       description,
@@ -152,6 +151,7 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
       auto_init: true,
       default_branch: "main",
     });
+    await catalog.claim(by, slug);
     notify.send("course", "info", "Curso creado", { Curso: slug, Autor: by, Cómo: how });
   }
 
@@ -180,25 +180,28 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
     return { slug, lang: input.lang, cloneUrl: `${sourceUrl(slug)}.git`, sourceUrl: sourceUrl(slug) };
   }
 
-  /** Cursos creados (repos fuente) con su origen y el estado de la verificación. */
-  async function list() {
-    const repos = await fj.all<any>(`/orgs/${org}/repos`);
+  /** Los cursos que `user` puede modificar (sus repos fuente), con su origen, visibilidad y estado de la verificación. */
+  async function list(user: string) {
+    const mine = (await catalog.list(user)).filter((a) => a.write);
     return Promise.all(
-      repos.map(async (r) => {
-        const branch = await fj.find<any>(`/repos/${org}/${r.name}/branches/main`);
-        const yaml = await fj.raw(org, r.name, "course.yaml").then((b) => parse(b.toString("utf8"))).catch(() => null);
-        const v = await verifier.get(r.name);
+      mine.map(async (a) => {
+        const branch = await fj.find<any>(`/repos/${org}/${a.slug}/branches/main`);
+        const yaml = await fj.raw(org, a.slug, "course.yaml").then((b) => parse(b.toString("utf8"))).catch(() => null);
+        const v = await verifier.get(a.slug);
         const sha = branch?.commit?.id ?? "";
         return {
-          slug: r.name,
-          title: yaml?.title ?? r.name,
-          description: yaml?.description ?? r.description ?? "",
+          slug: a.slug,
+          title: yaml?.title ?? a.slug,
+          description: yaml?.description ?? a.description ?? "",
           origin: yaml?.origin ?? null,
           author: yaml?.author ?? null,
           sha,
-          updatedAt: branch?.commit?.timestamp ?? r.updated_at,
-          verify: await verifySummary(r.name, sha, v),
-          sourceUrl: sourceUrl(r.name),
+          updatedAt: branch?.commit?.timestamp ?? a.updatedAt,
+          public: a.public,
+          stars: a.stars,
+          canManage: a.manage,
+          verify: await verifySummary(a.slug, sha, v),
+          sourceUrl: sourceUrl(a.slug),
         };
       }),
     );
@@ -224,7 +227,7 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
 
   /** Todo lo que el autor necesita saber del último commit: formato, verificación y qué falla. */
   async function status(slug: string, user: string) {
-    if (!(await exists(slug))) throw new HttpError(404, `No existe el curso ${slug}.`);
+    const access = await catalog.need(user, slug, "write");
     const src = await loadSource(fj, org, slug);
     const v = await verifier.get(slug);
     const c = src.course;
@@ -236,6 +239,9 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
       title: c?.title ?? slug,
       origin: c?.origin ?? null,
       author: c?.author ?? null,
+      public: access.public,
+      stars: access.stars,
+      canManage: access.manage,
       image: c?.image ?? null,
       issues: c?.issues.length ?? 0,
       milestones: c?.milestones.length ?? 0,
@@ -252,7 +258,8 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
 
   async function exportCourse(slug: string, user: string) {
     checkSlug(slug);
-    if (!(await exists(slug))) throw new HttpError(404, `No existe el curso ${slug}.`);
+    // El código lleva el repo entero, solución incluida: sólo para quien puede modificar el curso.
+    await catalog.need(user, slug, "write");
     const src = await loadSource(fj, org, slug);
     if (src.errors.length) {
       throw new HttpError(400, `El curso tiene errores de formato y hay que arreglarlos antes de compartirlo:\n${src.errors.join("\n")}`);
@@ -316,7 +323,7 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
   }
 
   /** Crea el repo fuente con los archivos del código y lo verifica acá, con tu Docker. */
-  async function importCourse(code: string, as?: string, user?: string) {
+  async function importCourse(code: string, as: string | undefined, user: string) {
     const { bundle, files } = unpack(code);
     const slug = (as ?? bundle.slug).trim();
     checkSlug(slug);
@@ -369,7 +376,7 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
     const post = req.method === "POST";
     let r: RegExpExecArray | null;
     try {
-      if (get && p === "/api/author") return json(res, await list()), true;
+      if (get && p === "/api/author") return json(res, await list(user)), true;
       if (get && p === "/api/author/templates") {
         return json(res, Object.entries(TEMPLATES).map(([lang, t]) => ({ lang, ...t }))), true;
       }
@@ -381,7 +388,7 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
       if (post && p === "/api/author/new") return json(res, await newCourse(await body(req), user), 201), true;
       if (get && (r = /^\/api\/author\/([^/]+)$/.exec(p))) return json(res, await status(r[1], user)), true;
       if (post && (r = /^\/api\/author\/([^/]+)\/verify$/.exec(p))) {
-        if (!(await exists(r[1]))) throw new HttpError(404, `No existe el curso ${r[1]}.`);
+        await catalog.need(user, r[1], "write");
         verifier.start(r[1]);
         return json(res, { slug: r[1], busy: true }, 202), true;
       }

@@ -319,7 +319,7 @@ export function registerTutor(server: McpServer, { fj, user, api }: Deps) {
           role: "user",
           content: {
             type: "text",
-            text: `Crea un curso de byox para construir ${tema}${lenguaje ? ` en ${lenguaje}` : ""}${etapas ? `, en unas ${etapas} etapas` : ""}. Lee get_format_guide antes de empezar, escribe el curso con write_course_files, valídalo con validate_course y verifícalo con verify_course hasta que el esqueleto falle y la solución pase en todas las etapas. Cuando esté verificado, pregúntame si lo publico con start_course.`,
+            text: `Crea un curso de byox para construir ${tema}${lenguaje ? ` en ${lenguaje}` : ""}${etapas ? `, en unas ${etapas} etapas` : ""}. Lee get_format_guide antes de empezar, escribe el curso con write_course_files, valídalo con validate_course y verifícalo con verify_course hasta que el esqueleto falle y la solución pase en todas las etapas. Cuando esté verificado, pregúntame si empiezo el curso yo con start_course para probarlo, y si quiero hacerlo público con set_course_visibility (por defecto queda privado, solo para mí).`,
           },
         },
       ],

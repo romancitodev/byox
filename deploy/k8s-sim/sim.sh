@@ -121,7 +121,7 @@ bootstrap() {
   if ! k exec deploy/forgejo -- curl -fsS -o /dev/null -H "Authorization: token $tok" "http://localhost:3000/api/v1/orgs/$BYOX_ORG" 2>/dev/null; then
     k exec deploy/forgejo -- curl -fsS -o /dev/null -X POST -H "Authorization: token $tok" -H 'Content-Type: application/json' \
       "http://localhost:3000/api/v1/orgs" \
-      -d "{\"username\":\"$BYOX_ORG\",\"visibility\":\"private\",\"description\":\"Fuentes de los cursos\"}"
+      -d "{\"username\":\"$BYOX_ORG\",\"visibility\":\"limited\",\"description\":\"Fuentes de los cursos\"}"
   fi
 }
 

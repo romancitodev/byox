@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { z } from "zod";
 import { authoring, ensureWebhook } from "./authoring.js";
 import { Auth, HttpError, langOf, localize, type Principal, type SignupMode } from "./auth.js";
+import { Catalog, ensureOrgVisibility } from "./catalog.js";
 import { Clients } from "./clients.js";
 import { isVerified, loadSource, VERIFY_CONTEXT, type Source } from "./course.js";
 import { Forgejo } from "./forgejo.js";
@@ -68,6 +69,7 @@ Calidad: nada inventado.
 - Basate en fuentes reales. Antes de escribir un contrato, un test o una pista sobre una API, una librería, un protocolo o un comportamiento del lenguaje, verificalo contra la documentación oficial, la especificación (RFC, spec del formato) o el código fuente de una implementación real. Usá las herramientas que tengas (docs MCP como context7, búsqueda web, leer repos reales) y fijate que la versión coincida con la de \`image\`.
 - Ejecutá antes de afirmar. Si tenés shell o Docker, probá los snippets. Los números (salidas, tamaños, tiempos, conteos) salen de una corrida real, no de una estimación.
 - Todo curso trae solution/: una implementación de referencia completa y real. verify_course corre los tests en la imagen del curso: con el esqueleto tienen que fallar todos y con la solución tienen que pasar todos. start_course se niega a publicar un commit que no pasó verify_course.
+- Visibilidad: un curso nuevo es privado y queda a nombre de quien lo crea; solo esa persona (y los administradores) lo ve. Cuando esté verificado y la persona quiera que otros lo hagan, publicalo con set_course_visibility. Un curso público lo ve cualquier cuenta de la instancia y puede estrellarlo (star_course), y su solution/ queda visible en Forgejo: preguntale antes de publicar.
 - En course.yaml poné \`origin: ai\`: la web distingue los cursos que escribe un asistente de los que arma una persona a mano.
 - Citá. Cada issue termina con una sección "Para leer" con links a las fuentes reales que usaste: docs, specs, código.
 - Si algo no lo pudiste verificar, decíselo al usuario en el chat en vez de publicarlo como cierto.
@@ -103,17 +105,21 @@ function buildServer(me: Principal): McpServer {
 
   server.registerTool(
     "list_courses",
-    { description: "Lista los cursos creados (repos fuente) y el progreso de los que están empezados." },
+    {
+      description:
+        "Lista los cursos que puedes ver (los públicos y los tuyos, que son privados hasta que los publiques), con su visibilidad, sus estrellas y tu progreso en los que están empezados.",
+    },
     async () => {
-      const repos = await fj.all<any>(`/orgs/${cfg.org}/repos`);
-      if (repos.length === 0) return text("No hay cursos todavía.");
+      const [courses, starred] = await Promise.all([catalog.list(me.user), catalog.starred(me.user)]);
+      if (courses.length === 0) return text("No hay cursos todavía.");
       const lines = await Promise.all(
-        repos.map(async (r) => {
-          const issues = await fj.find<any[]>(`/repos/${me.user}/${r.name}/issues?state=all&type=issues&limit=50`);
+        courses.map(async (c) => {
+          const issues = await fj.find<any[]>(`/repos/${me.user}/${c.slug}/issues?state=all&type=issues&limit=50`);
           const progress = issues
             ? `${issues.filter((i) => i.state === "closed").length}/${issues.length}`
             : "sin empezar";
-          return `- ${r.name}: ${r.description || "(sin descripción)"} · ${progress}`;
+          const stars = `★ ${c.stars}${starred.has(c.slug) ? " (tuya)" : ""}`;
+          return `- ${c.slug}: ${c.description || "(sin descripción)"} · ${progress} · ${c.public ? "público" : "privado"} · ${stars}${c.write ? " · puedes editarlo" : ""}`;
         }),
       );
       return text(lines.join("\n"));
@@ -128,6 +134,8 @@ function buildServer(me: Principal): McpServer {
       inputSchema: { slug: slugSchema, paths: z.array(z.string()).optional() },
     },
     async ({ slug, paths }) => {
+      // Lleva la solución: sólo para quien puede modificar el curso.
+      await catalog.need(me.user, slug, "write");
       const tree = await fj.tree(cfg.org, slug);
       if (tree.size === 0) return fail(`No existe ${cfg.org}/${slug} o está vacío.`);
       if (!paths?.length) return text([...tree.keys()].sort().join("\n"));
@@ -144,7 +152,7 @@ function buildServer(me: Principal): McpServer {
     "write_course_files",
     {
       description:
-        "Crea o actualiza archivos en el repo fuente de un curso (lo crea si no existe), en un solo commit. `content: null` borra el archivo.",
+        "Crea o actualiza archivos en el repo fuente de un curso (lo crea si no existe), en un solo commit. `content: null` borra el archivo. Un curso nuevo es privado y queda a tu nombre; solo quien lo creó puede modificarlo.",
       inputSchema: {
         slug: slugSchema,
         description: z.string().optional().describe("Descripción del repo, sólo al crearlo"),
@@ -155,7 +163,13 @@ function buildServer(me: Principal): McpServer {
     async ({ slug, description, message, files }) => {
       const no = needAuthor();
       if (no) return no;
-      if (!(await fj.find(`/repos/${cfg.org}/${slug}`))) {
+      let created = false;
+      if (await fj.find(`/repos/${cfg.org}/${slug}`)) {
+        // Existe: sólo se toca si es tuyo. Si no lo ves, no se revela nada más que el nombre ya está usado.
+        const a = await catalog.access(me.user, slug);
+        if (!a) return fail(`Ya existe un curso llamado ${slug} y no es tuyo: elige otro nombre.`);
+        if (!a.write) return fail(`No puedes modificar ${slug}: es de otra persona.`);
+      } else {
         await fj.req("POST", `/orgs/${cfg.org}/repos`, {
           name: slug,
           description: description ?? "",
@@ -163,6 +177,8 @@ function buildServer(me: Principal): McpServer {
           auto_init: true,
           default_branch: "main",
         });
+        await catalog.claim(me.user, slug);
+        created = true;
         notify.send("course", "info", "Curso creado", { Curso: slug, Autor: me.user, Cómo: "asistente (MCP)" });
       }
       const sha = await fj.commit(
@@ -173,7 +189,10 @@ function buildServer(me: Principal): McpServer {
       );
       // Lo verifica verify_course cuando el curso esté listo, no el webhook en cada escritura.
       verifier.ownCommit(sha);
-      return text(`Listo: ${files.length} archivo(s) en ${cfg.publicUrl}/${cfg.org}/${slug}`);
+      return text(
+        `Listo: ${files.length} archivo(s) en ${cfg.publicUrl}/${cfg.org}/${slug}` +
+          (created ? "\nEl curso es privado: solo tú lo ves. Cuando esté verificado puedes publicarlo con set_course_visibility." : ""),
+      );
     },
   );
 
@@ -181,6 +200,7 @@ function buildServer(me: Principal): McpServer {
     "validate_course",
     { description: "Valida el formato del curso (course.yaml, grafo, archivos). Rápido, no corre tests.", inputSchema: { slug: slugSchema } },
     async ({ slug }) => {
+      await catalog.need(me.user, slug, "write");
       const src = await loadSource(fj, cfg.org, slug);
       if (src.errors.length) return fail(problems(src));
       const c = src.course!;
@@ -202,6 +222,7 @@ function buildServer(me: Principal): McpServer {
     async ({ slug }) => {
       const no = needAuthor();
       if (no) return no;
+      await catalog.need(me.user, slug, "write");
       const src = await loadSource(fj, cfg.org, slug);
       if (src.errors.length) return fail(problems(src));
       const v = await verifier.run(slug);
@@ -258,6 +279,7 @@ function buildServer(me: Principal): McpServer {
       inputSchema: { slug: slugSchema, reset: z.boolean().default(false) },
     },
     async ({ slug, reset }) => {
+      await catalog.need(me.user, slug, "see");
       const src = await loadSource(fj, cfg.org, slug);
       if (src.errors.length) return fail(problems(src));
       const statuses = await fj.all<any>(`/repos/${cfg.org}/${slug}/commits/${src.sha}/statuses`);
@@ -290,10 +312,37 @@ function buildServer(me: Principal): McpServer {
     },
     async ({ slug }) => {
       if (!(await fj.find(`/repos/${me.user}/${slug}`))) return fail(`No existe ${me.user}/${slug}. Para empezarlo usá start_course.`);
+      // Si el curso volvió a ser privado y no es tuyo, ya no se puede traer lo nuevo.
+      await catalog.need(me.user, slug, "see");
       const src = await loadSource(fj, cfg.org, slug);
       if (src.errors.length) return fail(problems(src));
       if (!(await isVerified(fj, cfg.org, slug, src.sha))) return fail("El último commit del curso no está verificado. Corré verify_course primero.");
       return text(await upgradeCourse(fj, mine, src));
+    },
+  );
+
+  server.registerTool(
+    "set_course_visibility",
+    {
+      description:
+        "Publica un curso (lo ve y lo puede empezar cualquier cuenta de la instancia) o lo vuelve privado (solo lo ven quienes lo administran). Los cursos nuevos son privados. Solo el dueño del curso o un administrador; para publicar, el último commit tiene que estar verificado con verify_course. Ojo: un curso público es un repo público de Forgejo para todas las cuentas, con su solution/ incluida; y al volverlo privado Forgejo borra las estrellas de las demás cuentas, sin vuelta atrás. Pregúntale a la persona antes de cambiarlo.",
+      inputSchema: { slug: slugSchema, public: z.boolean() },
+    },
+    async ({ slug, public: on }) => {
+      const a = await catalog.setPublic(me.user, slug, on);
+      return text(a.public ? `${slug} ahora es público: cualquier cuenta lo ve y lo puede empezar.` : `${slug} ahora es privado: solo lo ven quienes lo administran.`);
+    },
+  );
+
+  server.registerTool(
+    "star_course",
+    {
+      description: "Pone o saca tu estrella en un curso que puedes ver (es la estrella de Forgejo de tu cuenta). Con starred: false la saca.",
+      inputSchema: { slug: slugSchema, starred: z.boolean().default(true) },
+    },
+    async ({ slug, starred }) => {
+      const r = await catalog.star(me.user, slug, starred);
+      return text(`${starred ? "Estrellaste" : "Sacaste tu estrella de"} ${slug}. Estrellas: ${r.stars}.`);
     },
   );
 
@@ -323,7 +372,7 @@ function scheduleProfile(user: string, delay = 3000) {
   profileTimers.set(
     user,
     setTimeout(() => {
-      refreshProfile(fj, { ...cfg, user }).catch((e) => console.error(`perfil de ${user}:`, e.message));
+      refreshProfile(fj, { ...cfg, user }, catalog).catch((e) => console.error(`perfil de ${user}:`, e.message));
     }, delay),
   );
 }
@@ -336,7 +385,15 @@ setTimeout(() => refreshAll(), 10_000);
 
 const results = new Results(db);
 const verifier = new Verifier(fj, cfg.org, db);
-const author = authoring(fj, cfg, verifier);
+const catalog = new Catalog(fj, cfg.org);
+const author = authoring(fj, cfg, verifier, catalog);
+// Para publicar cursos la organización tiene que ser «limited»; si está en «private» se corrige sola al arrancar.
+const orgVisibility = (tries = 0) =>
+  ensureOrgVisibility(fj, cfg.org).catch((e) => {
+    console.error("organización:", e.message);
+    if (tries < 10) setTimeout(() => orgVisibility(tries + 1), 30_000);
+  });
+orgVisibility();
 // Los push a los repos fuente (cursos escritos a mano) se verifican solos.
 const hookUrl = env("BYOX_HOOK_URL", "http://mcp:3333/hooks/source");
 const hook = (tries = 0) =>
@@ -347,7 +404,7 @@ const hook = (tries = 0) =>
 hook();
 const clients = new Clients(db);
 const usage = new Usage(db);
-const web_ = web(fj, cfg, results, clients, auth, (user) => scheduleProfile(user), usage);
+const web_ = web(fj, cfg, results, clients, auth, (user) => scheduleProfile(user), usage, catalog);
 const handleWeb = web_.handle;
 
 createServer(async (req, res) => {

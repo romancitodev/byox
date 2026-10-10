@@ -160,6 +160,29 @@ Un curso con una API que no existe o un test que no compila es peor que no tener
 
 El `README.md` es lo primero que ve el alumno al abrir su repositorio. byox lo usa como introducción y le agrega debajo el mapa del grafo, la lista de etapas por tramo y cómo se usa, así que eso no hace falta escribirlo. Una portada que funciona tiene un título con emoji, una frase que dice qué vas a construir, una demo con salida real, qué vas a aprender, los requisitos con el tiempo por tramo y los créditos de las fuentes.
 
+## Visibilidad y estrellas
+
+Un curso nuevo es **privado**: solo lo ven quien lo creó y los administradores. Para que otras cuentas de la instancia lo vean, lo empiecen y le den una estrella, hay que **publicarlo**.
+
+Todo esto es Forgejo, no una capa aparte de byox. La visibilidad es la del repositorio fuente del curso (`<organización>/<curso>`), el **dueño** es quien tiene permiso de administrador sobre ese repositorio (quien crea el curso queda como colaborador administrador) y las estrellas son las estrellas de Forgejo de cada cuenta.
+
+| | Privado | Público |
+|---|---|---|
+| Quién lo ve en el catálogo | El dueño y los administradores | Cualquier cuenta con sesión |
+| Quién lo puede empezar | El dueño y los administradores | Cualquier cuenta con sesión |
+| Estrellas | Solo las de quienes lo ven | Cualquier cuenta que lo vea |
+| Quién lo modifica, verifica y exporta | El dueño y los administradores | El dueño y los administradores |
+
+Para cambiarlo, el dueño abre el curso (o **Creados → el curso**) y usa **Publicar curso** / **Volver privado**; con un asistente, `set_course_visibility`; por la API, `PUT /api/courses/:slug/visibility`. Las estrellas se dan con la estrella de la tarjeta, con `star_course` o con `PUT /api/courses/:slug/star`. En **Cursos** puedes filtrar por **Públicos**, **Míos** y **Con mi estrella**; los cursos con más estrellas salen primero.
+
+Tres cosas que conviene saber antes de publicar:
+
+- **El último commit tiene que estar verificado.** Así nadie ve un curso que no se puede empezar.
+- **La carpeta `solution/` queda a la vista.** Un curso público es un repositorio público de Forgejo para todas las cuentas de la instancia, con la solución dentro. byox no la ofrece a los alumnos (la exportación y la lectura de archivos son solo para quien puede modificar el curso), pero Forgejo sí la muestra.
+- **Volverlo privado borra las estrellas** de las demás cuentas: es lo que hace Forgejo cuando un repositorio deja de ser público, y no se recupera. Quienes ya habían empezado el curso conservan su repositorio y su progreso, pero ya no pueden traer cambios nuevos.
+
+La organización de cursos tiene que ser `limited` (visible solo para cuentas con sesión) para que un curso público se vea. byox la corrige solo al arrancar si estaba en `private`; los cursos que ya eran privados siguen siéndolo.
+
 ## Publicar para ti
 
 `start_course` (o `byox start`, o el botón **Empezar el curso** de la web) crea tu repositorio del curso: issues, tramos, grafo de dependencias, etiquetas, pistas y workflows. Con `reset: true` borra el progreso y arranca de cero.

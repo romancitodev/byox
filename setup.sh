@@ -70,7 +70,7 @@ chmod 600 .env 2>/dev/null || true
 if ! api "http://localhost:3000/api/v1/orgs/$BYOX_ORG" >/dev/null 2>&1; then
   echo "→ Creando la organización de cursos: $BYOX_ORG"
   api -X POST http://localhost:3000/api/v1/orgs \
-    -d "{\"username\":\"$BYOX_ORG\",\"visibility\":\"private\",\"description\":\"Fuentes de los cursos\"}" >/dev/null
+    -d "{\"username\":\"$BYOX_ORG\",\"visibility\":\"limited\",\"description\":\"Fuentes de los cursos\"}" >/dev/null
 fi
 
 if [ ! -f data/runner/config.yml ]; then

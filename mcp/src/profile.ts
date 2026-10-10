@@ -1,3 +1,4 @@
+import type { Catalog } from "./catalog.js";
 import type { Forgejo } from "./forgejo.js";
 import type { Config } from "./instance.js";
 
@@ -14,7 +15,10 @@ export interface Taken {
 export type ProfileConfig = Config & { org: string; tz: string };
 
 export interface Stats {
+  /** Cursos que puedes modificar, privados incluidos. */
   created: string[];
+  /** Los de `created` que son públicos: lo único que sale a la vista de otras personas (el README del perfil). */
+  createdPublic: string[];
   taken: Taken[];
   /** Días con actividad, YYYY-MM-DD en la zona horaria del usuario. */
   active: string[];
@@ -24,17 +28,21 @@ export interface Stats {
 }
 
 /** Un día cuenta si hubo un commit tuyo o un issue cerrado en algún curso. */
-export async function computeStats(fj: Forgejo, cfg: ProfileConfig): Promise<Stats> {
+export async function computeStats(fj: Forgejo, cfg: ProfileConfig, catalog: Catalog): Promise<Stats> {
   const day = dayFn(cfg.tz);
 
-  const created = (await fj.all<any>(`/orgs/${cfg.org}/repos`)).map((r) => r.name as string).sort();
+  // Los cursos tomados salen del propio repo del alumno, sea cual sea hoy la visibilidad del curso fuente.
+  const everything = (await catalog.names()).sort();
   const mine = new Set(
-    (await Promise.all(created.map(async (n) => ((await fj.find(`/repos/${cfg.user}/${n}`)) ? n : null)))).filter((n): n is string => !!n),
+    (await Promise.all(everything.map(async (n) => ((await fj.find(`/repos/${cfg.user}/${n}`)) ? n : null)))).filter((n): n is string => !!n),
   );
+  const authored = (await catalog.list(cfg.user)).filter((a) => a.write);
+  const created = authored.map((a) => a.slug).sort();
+  const createdPublic = authored.filter((a) => a.public).map((a) => a.slug).sort();
   const active = new Set<string>();
   const taken: Taken[] = [];
 
-  for (const name of created.filter((n) => mine.has(n))) {
+  for (const name of everything.filter((n) => mine.has(n))) {
     const issues = await fj.all<any>(`/repos/${cfg.user}/${name}/issues?state=all&type=issues`);
     const closed = issues.filter((i) => i.state === "closed");
     for (const i of closed) active.add(day(i.closed_at));
@@ -63,7 +71,7 @@ export async function computeStats(fj: Forgejo, cfg: ProfileConfig): Promise<Sta
     run = new Date(sortedDays[k]).getTime() - prev === 86_400_000 ? run + 1 : 1;
     best = Math.max(best, run);
   }
-  return { created, taken, active: sortedDays, streak, best, today: back(0) };
+  return { created, createdPublic, taken, active: sortedDays, streak, best, today: back(0) };
 }
 
 const dayFn = (tz: string) => (iso: string | Date) =>
@@ -73,9 +81,10 @@ const dayFn = (tz: string) => (iso: string | Date) =>
  * Regenera el README de `<user>/.profile`, que Forgejo muestra en el perfil:
  * cursos creados, tomados y terminados, la racha y un heatmap chico.
  */
-export async function refreshProfile(fj: Forgejo, cfg: ProfileConfig): Promise<void> {
+export async function refreshProfile(fj: Forgejo, cfg: ProfileConfig, catalog: Catalog): Promise<void> {
   const day = dayFn(cfg.tz);
-  const { created, taken, streak, best, ...s } = await computeStats(fj, cfg);
+  // El README del perfil lo puede leer cualquiera: solo se nombran los cursos públicos.
+  const { createdPublic: created, taken, streak, best, ...s } = await computeStats(fj, cfg, catalog);
   const active = new Set(s.active);
   const today = new Date();
   const mine = new Set(taken.map((t) => t.name));
