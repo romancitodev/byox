@@ -26,7 +26,7 @@ Montar el socket de Docker equivale a dar acceso de administrador a la máquina 
 ## Instalar
 
 ```bash
-git clone <url-del-repositorio> byox
+git clone https://github.com/romancitodev/byox.git byox
 cd byox
 bash setup.sh
 ```

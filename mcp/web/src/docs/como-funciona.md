@@ -135,4 +135,6 @@ Los clientes nunca hablan con Forgejo a través de byox para hacer `git push`: e
 | Sesiones, tokens y resultados de tests | Volumen `mcp-data` (archivos JSON; los tokens solo como huella) |
 | Credenciales de la instancia | Archivo `.env` junto a `docker-compose.yml` |
 
-byox no tiene una base de datos propia. Si borras el volumen `mcp-data` pierdes las sesiones, los tokens y los últimos resultados de tests; el progreso y el código siguen en Forgejo.
+Por defecto byox no usa una base de datos propia. Si borras el volumen `mcp-data` pierdes las sesiones, los tokens y los últimos resultados de tests; el progreso y el código siguen en Forgejo.
+
+Para un servidor, `docker-compose.cloud.yml` guarda el estado de Forgejo y de byox en Postgres en vez de SQLite y archivos JSON (byox pasa a usar Postgres cuando tiene la variable `DATABASE_URL`). Las instrucciones están al principio de `docker-compose.cloud.yml`.

@@ -20,7 +20,7 @@ Necesitas Docker con Compose, Git y un shell `bash`. En Windows, usa Git Bash o 
 2. Clona el repositorio y ejecuta el script de instalación.
 
    ```bash
-   git clone <url-del-repositorio> byox
+   git clone https://github.com/romancitodev/byox.git byox
    cd byox
    bash setup.sh
    ```
