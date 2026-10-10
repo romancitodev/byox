@@ -1,45 +1,50 @@
 # 🔨 byox
 
-"Build your own X" self-hosted: cursos que son repos de Forgejo. Cada etapa es
-un issue con un test, los issues forman un grafo, y cada push corre los tests,
-cierra lo que pasa y desbloquea lo siguiente. Los cursos los puede escribir una
-IA a través de un MCP, o una persona a mano, y en los dos casos se verifican
-contra una solución real antes de publicarse.
+**English** | [Español](README.es.md)
 
-[English summary](README.en.md) · [Documentación](mcp/web/src/docs/index.md) · [Contribuir](CONTRIBUTING.md) · [Seguridad](SECURITY.md)
+Self-hosted "build your own X": courses that are Forgejo repositories. Every stage is
+an issue with a test, the issues form a dependency graph, and every push runs the
+tests, closes what passes and unlocks what comes next. Courses can be written by an AI
+through an MCP server or by a person by hand, and either way they are verified against
+a real reference solution before they are published.
 
-## Cómo funciona
+[Documentation (Spanish)](mcp/web/src/docs/index.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [Code of conduct](CODE_OF_CONDUCT.md)
 
-Un curso es un proyecto real dividido en etapas. Quien lo toma recibe un
-repositorio con un esqueleto que compila y tests que fallan; resolver una etapa
-es hacer que su test pase.
+> The official documentation (`mcp/web/src/docs/`), the bundled courses and the web app
+> are in Spanish; the web app also has an English interface. This README, the contributing
+> guide and the security policy are available in both languages.
 
-1. `byox start <curso>` (o el botón de la app) crea tu repo privado con un issue por etapa.
-2. Escribís el código y probás en local con `byox test`, en la misma imagen de Docker que usa el CI.
-3. Hacés `git push`. El runner de Forgejo corre los tests de los issues abiertos.
-4. Los que pasan se cierran, se desbloquean los que dependían de ellos y la app y el CLI te muestran el resultado (con archivo y línea si algo falló).
+## How it works
 
-Todo corre en tu máquina o en tu servidor: un Forgejo, un runner que ejecuta los
-tests en Docker y una aplicación (web, API y servidor MCP). No hay servicios
-externos ni cuentas de terceros.
+A course is a real project split into stages. Whoever takes it receives a repository with
+a skeleton that compiles and tests that fail; solving a stage means making its test pass.
 
-## Estado del proyecto
+1. `byox start <course>` (or the button in the web app) creates your private repo with one issue per stage.
+2. You write code and test locally with `byox test`, in the same Docker image the CI uses.
+3. You `git push`. The Forgejo runner runs the tests of the open issues.
+4. Passing stages are closed, the ones that depended on them are unlocked, and the app and the CLI show you the result (file and line included when something fails).
 
-byox se puede instalar y usar hoy, pero es un proyecto joven. Qué hay y qué no:
+Everything runs on your machine or your server: a Forgejo, a runner that executes the tests
+in Docker, and one application (web app, HTTP API and MCP server). There are no external
+services and no third-party accounts.
 
-| Hecho | Pendiente o con límites |
+## Project status
+
+byox can be installed and used today, but it is a young project. What exists and what does not:
+
+| Done | Pending or limited |
 |---|---|
-| Instalación local con `setup.sh` y Docker Compose | La suite de tests automáticos cubre el servidor MCP y los scripts de la VPS; la web y el CLI se prueban a mano |
-| Cuentas (usuarios de Forgejo), sesiones y tokens personales | El **registro abierto no es seguro todavía**: el bot es colaborador de todos los repos y el runner usa el socket de Docker del host (ver [Seguridad](SECURITY.md)) |
-| Servidor MCP con herramientas para escribir, verificar y publicar cursos, y para acompañar a quien cursa | Aislamiento de la ejecución de tests, credenciales por repositorio y cuotas: sin implementar |
-| App web, landing y documentación (Astro) | Una nube de pago es un plan a futuro; no hay planes, precios ni fechas |
-| CLI nativo (Rust): progreso, tests, pistas, creación y compartir cursos | El curso de Redis está incompleto (66 etapas publicadas; ver [Cursos](#cursos)) |
-| Estado en archivos JSON, o en Postgres para servidores | Mover una instalación existente a Postgres es manual |
-| Kit de despliegue para una VPS (Caddy, backups, avisos a Discord) y simulación de dos VPS en Kubernetes con kind | La simulación de Kubernetes es un banco de pruebas, no un método de instalación |
+| Local install with `setup.sh` and Docker Compose | The automated test suite covers the MCP server; the web app and the CLI are tested by hand |
+| Accounts (Forgejo users), sessions and personal tokens | **Open sign-up is not safe yet**: the bot is a collaborator on every learner repo and the runner uses the host's Docker socket (see [Security](SECURITY.md)) |
+| MCP server with tools to write, verify and publish courses and to assist the learner | Isolated execution of tests, per-repository credentials and quotas: not implemented |
+| Web app, landing page and documentation (Astro) | A paid hosted version is only a future plan; there are no plans, prices or dates |
+| Native CLI (Rust): progress, tests, hints, course creation and sharing | The Redis course is unfinished (66 stages published; see [Courses](#courses)) |
+| State in JSON files, or in Postgres for servers | Moving an existing install to Postgres is a manual process |
+| A two-VPS simulation on Kubernetes with kind | The Kubernetes simulation is a test bench, not an install method |
 
-## Inicio rápido
+## Quick start
 
-Necesitás Docker (con Compose), Git y `bash` (en Windows, Git Bash o WSL).
+You need Docker (with Compose), Git and `bash` (Git Bash or WSL on Windows).
 
 ```bash
 git clone https://github.com/romancitodev/byox.git
@@ -47,264 +52,263 @@ cd byox
 bash setup.sh
 ```
 
-`setup.sh` crea tu usuario administrador (`BYOX_USER`, por defecto `owner`), el
-bot `byox`, la organización `cursos`, registra el runner y levanta todo. La
-contraseña queda en `.env`. Se puede volver a correr sin riesgo.
+`setup.sh` creates the admin user (`BYOX_USER`, `owner` by default), the `byox` bot, the
+`cursos` organization, registers the runner and starts everything. The password is saved in
+`.env`. You can run it again safely.
 
-Todo exige una cuenta: entrá a http://localhost:3333/app con ese usuario. Para
-sumar personas, `BYOX_SIGNUP=invite` (o `open`) en `.env`.
+Everything requires an account: open http://localhost:3333/app and sign in with that user.
+To add more people, set `BYOX_SIGNUP=invite` (or `open`) in `.env`.
 
 | | |
 |---|---|
-| **Tus cursos** | http://localhost:3333/app |
-| Landing | http://localhost:3333 |
-| Documentación | http://localhost:3333/docs |
+| **Your courses** | http://localhost:3333/app |
+| Landing page | http://localhost:3333 |
+| Documentation | http://localhost:3333/docs |
 | Forgejo | http://localhost:3000 |
 | MCP | http://localhost:3333/mcp |
 
-La guía paso a paso está en [Inicio rápido](mcp/web/src/docs/inicio-rapido.md).
+The step-by-step guide (in Spanish) is [Inicio rápido](mcp/web/src/docs/inicio-rapido.md).
 
-## Componentes
+## Components
 
-| Carpeta | Qué es | Tecnología |
+| Folder | What it is | Technology |
 |---|---|---|
-| [`mcp/`](mcp) | Servidor: API HTTP, servidor MCP, estado, verificación de cursos | TypeScript (Node 22) |
-| [`mcp/web/`](mcp/web) | Landing, documentación y app web; el MCP sirve el resultado compilado | Astro |
-| [`mcp/assets/`](mcp/assets) | Lo que byox copia a cada repo de alumno (workflows, scripts, plantillas, guía de formato) | YAML, JS, plantillas |
-| [`cli/`](cli) | El comando `byox` | Rust |
-| [`courses/`](courses), [`examples/`](examples) | Cursos incluidos | Ver [Cursos](#cursos) |
-| [`deploy/vps/`](deploy/vps) | Kit para una sola VPS: bootstrap, Caddy, backups, monitor y avisos a Discord | Bash, Caddy |
-| [`deploy/k8s-sim/`](deploy/k8s-sim) | Simulación de dos VPS con runners horizontales en kind | Bash, Kubernetes |
-| [`docker-compose.yml`](docker-compose.yml), [`docker-compose.cloud.yml`](docker-compose.cloud.yml) | Los servicios y la variante con Postgres | Docker Compose |
-| [`setup.sh`](setup.sh), [`scripts/`](scripts) | Instalación y subida de cursos desde una carpeta | Bash, Node |
+| [`mcp/`](mcp) | Server: HTTP API, MCP server, state, course verification | TypeScript (Node 22) |
+| [`mcp/web/`](mcp/web) | Landing page, documentation and web app; the MCP serves the built output | Astro |
+| [`mcp/assets/`](mcp/assets) | What byox copies into each learner repo (workflows, scripts, templates, format guide) | YAML, JS, templates |
+| [`cli/`](cli) | The `byox` command | Rust |
+| [`courses/`](courses), [`examples/`](examples) | Bundled courses | See [Courses](#courses) |
+| [`deploy/k8s-sim/`](deploy/k8s-sim) | A kind simulation of two VPS with horizontal runners | Bash, Kubernetes |
+| [`docker-compose.yml`](docker-compose.yml), [`docker-compose.cloud.yml`](docker-compose.cloud.yml) | The services and the Postgres variant | Docker Compose |
+| [`setup.sh`](setup.sh), [`scripts/`](scripts) | Installation and uploading courses from a folder | Bash, Node |
 
-La instancia son tres servicios: `forgejo` (repos, issues, Actions), `runner`
-(ejecuta los tests en contenedores con el Docker del host) y `mcp` (la app).
+An instance is three services: `forgejo` (repos, issues, Actions), `runner` (runs the tests
+in containers using the host's Docker) and `mcp` (the app).
 
-## Cursos
+## Courses
 
-| Curso | Lenguaje | Etapas | Estado |
+The courses are written in Spanish.
+
+| Course | Language | Stages | Status |
 |---|---|---|---|
-| [`build-your-own-redis`](courses/build-your-own-redis) | Rust | 66, en 5 tramos (RESP, servidor, strings, expiración, listas) | En desarrollo: faltan persistencia, transacciones, pub/sub, replicación y más. Los tests comparan contra un `redis-server` real |
-| [`build-your-own-parallel`](courses/build-your-own-parallel) | Rust | 16, en 6 tramos | Publicado: reducción, scan, odd-even y merge sort paralelos |
-| [`build-your-own-calc`](examples/build-your-own-calc) | Python | 3, en 2 tramos | Ejemplo chico: tokenizer y evaluador |
+| [`build-your-own-redis`](courses/build-your-own-redis) | Rust | 66, in 5 milestones (RESP, server, strings, expiry, lists) | In progress: persistence, transactions, pub/sub, replication and more are still missing. The tests compare against a real `redis-server` |
+| [`build-your-own-parallel`](courses/build-your-own-parallel) | Rust | 16, in 6 milestones | Published: parallel reduction, scan, odd-even and merge sort |
+| [`build-your-own-calc`](examples/build-your-own-calc) | Python | 3, in 2 milestones | Small example: tokenizer and evaluator |
 
-Cada etapa termina con una sección «Para leer» y cada curso cita sus fuentes en la
-portada: especificaciones, documentación oficial y libros. Esas obras conservan
-sus propias licencias; los cursos no copian su contenido.
+Every stage ends with a "Para leer" (further reading) section and every course cites its
+sources on its cover page: specifications, official documentation and books. Those works keep
+their own licenses; the courses do not copy their content.
 
-Para subir un curso desde una carpeta a una instancia en marcha (con un token personal en `BYOX_TOKEN`):
+To upload a course from a folder to a running instance (with a personal token in `BYOX_TOKEN`):
 
 ```bash
 docker run --rm --network byox -e BYOX_TOKEN=byox_… -v "$PWD:/w" -w /w node:22-bookworm-slim \
   node scripts/push-course.mjs examples/build-your-own-calc --verify --start
 ```
 
-## El CLI
+## The CLI
 
-`byox` es un ejecutable nativo (Rust) que habla con la misma API que la web.
-Adentro del repo de un curso detecta solo de qué curso se trata.
+`byox` is a native executable (Rust) that talks to the same API as the web app. Inside a
+course repo it detects which course it is.
 
 ```bash
 cargo install --path cli
-byox login byox_…   # el token se crea en la app: Cuenta → Tokens (o variable BYOX_TOKEN)
+byox login byox_…   # create the token in the app: Account → Tokens (or the BYOX_TOKEN variable)
 ```
 
-| Comando | Qué hace |
+| Command | What it does |
 |---|---|
-| `byox` | Progreso, etapa actual y resultado del último push (con el error y el archivo:línea si falló) |
-| `byox test [n]` | Corre los tests en Docker, en la misma imagen que el CI, y al final te dice qué falló y dónde. `--local` usa `sh` y tus herramientas |
-| `byox watch` | Después de `git push`: espera al CI y te dice qué se cerró, qué se abrió y qué falló |
-| `byox show [n]` | Las instrucciones de la etapa en la terminal |
-| `byox hint [n]` | La siguiente pista |
-| `byox log [n]` | La salida del test en el CI, con las líneas del error resaltadas |
-| `byox open [n]` | Abre la etapa en la web |
-| `byox courses` / `byox clone <curso>` | Tus cursos y clonar el repo de uno |
-| `byox new <curso> --lang python\|rust\|go\|node` | Un curso escrito a mano, desde una plantilla que ya anda |
-| `byox check [curso]` | Cómo quedó el curso que escribís: formato y, por etapa, si el esqueleto falla y la solución pasa |
-| `byox start <curso>` | Empieza un curso verificado: crea tu repo con los issues |
-| `byox export <curso>` | Copia el código del curso para compartirlo (`-o curso.byox` lo guarda en un archivo) |
-| `byox import [código\|archivo]` | Importa un curso; sin argumentos, el código del portapapeles |
-| `byox guide` | El formato de un curso |
+| `byox` | Progress, current stage and the result of the last push (with the error and file:line if it failed) |
+| `byox test [n]` | Runs the tests in Docker, in the same image as the CI, and tells you what failed and where. `--local` uses `sh` and your own tools |
+| `byox watch` | After `git push`: waits for the CI and tells you what closed, what opened and what failed |
+| `byox show [n]` | The stage instructions in the terminal |
+| `byox hint [n]` | The next hint |
+| `byox log [n]` | The test output from the CI, with the error lines highlighted |
+| `byox open [n]` | Opens the stage in the web app |
+| `byox courses` / `byox clone <course>` | Your courses, and cloning the repo of one |
+| `byox new <course> --lang python\|rust\|go\|node` | A hand-written course, from a template that already works |
+| `byox check [course]` | How the course you are writing turned out: format and, per stage, whether the skeleton fails and the solution passes |
+| `byox start <course>` | Starts a verified course: creates your repo with the issues |
+| `byox export <course>` | Copies the course code so you can share it (`-o course.byox` saves it to a file) |
+| `byox import [code\|file]` | Imports a course; with no argument, the code on the clipboard |
+| `byox guide` | The course format |
 
-Sin el CLI, en Windows: `.course\test 7` (también corre en Docker). Más en [CLI](mcp/web/src/docs/cli.md).
+Without the CLI, on Windows: `.course\test 7` (it also runs in Docker). More in [CLI](mcp/web/src/docs/cli.md) (Spanish).
 
-## La app web
+## The web app
 
-http://localhost:3333/app es donde seguís los cursos:
+http://localhost:3333/app is where you follow the courses:
 
-- Barra lateral con las etapas por milestone: ✓ completada, ⋯ disponible, # bloqueada.
-- La portada de cada curso (`/app/c/<curso>`) con el README, el mapa de etapas clickeable y un botón para seguir.
-- Instrucciones renderizadas, el comando para verificar local y tus pistas (pedís la siguiente con un botón).
-- Arriba, el estado del último push en vivo: corriendo, terminado, link a los logs.
-- Cuando un push cierra etapas, un aviso con lo que se desbloqueó y un botón a la siguiente.
-- A la derecha: tu racha, el progreso y qué depende de qué.
-- **Creados** (`/app/creados`): los cursos que escribiste, con el estado de la verificación de cada push
-  (el esqueleto tiene que fallar y la solución pasar, etapa por etapa) y el log de lo que falla.
-  Desde ahí se crea un curso nuevo a partir de una plantilla o se importa uno.
-- **Compartir**: en la portada de un curso, un código `byox1-…` para copiar o un archivo `.byox` para descargar.
-  Quien lo recibe lo importa desde Creados, con una vista previa antes de confirmar.
+- A sidebar with the stages per milestone: ✓ done, ⋯ available, # blocked.
+- Each course's cover page (`/app/c/<course>`) with the README, a clickable stage map and a button to continue.
+- Rendered instructions, the command to verify locally and your hints (you ask for the next one with a button).
+- At the top, the live status of the last push: running, finished, link to the logs.
+- When a push closes stages, a notice with what was unlocked and a button to the next one.
+- On the right: your streak, your progress and what depends on what.
+- **Created** (`/app/creados`): the courses you wrote, with the verification status of each push
+  (the skeleton must fail and the solution must pass, stage by stage) and the log of what fails.
+  From there you create a new course from a template or import one.
+- **Share**: on a course's cover page, a `byox1-…` code to copy or a `.byox` file to download.
+  Whoever receives it imports it from Created, with a preview before confirming.
 
-La landing (http://localhost:3333) explica byox con un curso de ejemplo inventado.
-Las rutas viejas (`/cursos`, `/actividad`, `/c/...`) redirigen a `/app`.
+The landing page (http://localhost:3333) explains byox with an invented example course.
+The old routes (`/cursos`, `/actividad`, `/c/...`) redirect to `/app`.
 
-La web es un proyecto de [Astro](https://astro.build) en `mcp/web/` (landing en
-`src/pages/index.astro`, app en `src/pages/app.astro`, documentación en
-`src/docs/`). El Dockerfile del MCP la compila y el MCP sirve el resultado. Para
-trabajar en ella con recarga en vivo, con el MCP corriendo en Docker:
+The web is an [Astro](https://astro.build) project in `mcp/web/` (landing in
+`src/pages/index.astro`, app in `src/pages/app.astro`, documentation in `src/docs/`). The MCP's
+Dockerfile builds it and the MCP serves the result. To work on it with live reload, with the MCP
+running in Docker:
 
 ```bash
 cd mcp/web && npm install && npm run dev
 ```
 
-Queda en http://localhost:4321 y le pasa `/api` al MCP en `:3333` (otro destino con
-`BYOX_API`). Para mostrar el link a GitHub en la landing, agregá `PUBLIC_GITHUB_URL`
-al `.env` y volvé a levantar con `docker compose up -d --build mcp`.
+It runs on http://localhost:4321 and proxies `/api` to the MCP on `:3333` (another target with
+`BYOX_API`). To show a GitHub link on the landing page, add `PUBLIC_GITHUB_URL` to `.env` and
+bring it up again with `docker compose up -d --build mcp`.
 
-## El asistente (MCP)
+## The assistant (MCP)
 
-Conectar Claude Code (el MCP exige un token personal, créalo en Cuenta → Tokens):
+Connect Claude Code (the MCP requires a personal token; create it in Account → Tokens):
 
 ```bash
 claude mcp add --transport http byox http://localhost:3333/mcp \
   --header "Authorization: Bearer byox_…"
 ```
 
-Para escribir y publicar cursos:
+To write and publish courses:
 
-| Herramienta | Qué hace |
+| Tool | What it does |
 |---|---|
-| `get_format_guide` | El formato y las reglas para escribir un curso |
-| `list_courses` | Cursos creados y su progreso |
-| `read_course` | Lee archivos del repo fuente |
-| `write_course_files` | Escribe archivos en el repo fuente (un commit) |
-| `validate_course` | Chequea formato y grafo |
-| `verify_course` | Corre los tests en la imagen real: el esqueleto tiene que fallar y la solución pasar |
-| `start_course` | Publica tu repo del curso (sólo si el commit está verificado) |
-| `upgrade_course` | Trae a un repo ya empezado los cambios del curso, sin tocar el código del alumno |
-| `course_status` | Qué está cerrado, disponible o bloqueado |
-| `export_course` / `import_course` | El código de un curso para compartirlo, e importarlo |
+| `get_format_guide` | The format and the rules for writing a course |
+| `list_courses` | Created courses and their progress |
+| `read_course` | Reads files from the source repo |
+| `write_course_files` | Writes files to the source repo (one commit) |
+| `validate_course` | Checks format and graph |
+| `verify_course` | Runs the tests in the real image: the skeleton must fail and the solution must pass |
+| `start_course` | Publishes your course repo (only if the commit is verified) |
+| `upgrade_course` | Brings the course's changes into an already started repo, without touching the learner's code |
+| `course_status` | What is closed, available or blocked |
+| `export_course` / `import_course` | A course's code to share, and importing it |
 
-Para acompañar al alumno mientras hace un curso:
+To assist the learner while they take a course:
 
-| Herramienta | Qué hace |
+| Tool | What it does |
 |---|---|
-| `where_am_i` | Progreso de cada curso, etapas disponibles y tests que fallan con su archivo:línea |
-| `get_stage` | La consigna de una etapa, de qué depende, qué desbloquea y las pistas ya pedidas |
-| `explain_failure` | Por qué falla un test: diagnóstico, líneas del log y el código del alumno en ese commit |
-| `get_hint` | Pide la siguiente pista y la devuelve cuando el bot la publica |
-| `ci_status` | El último push y el resultado de cada etapa probada |
-| `read_my_code` | Lee el repo del alumno en Forgejo |
-| `my_stats` | Racha, récord y cursos creados, empezados y terminados |
+| `where_am_i` | Progress in each course, available stages and failing tests with their file:line |
+| `get_stage` | A stage's instructions, what it depends on, what it unlocks and the hints already requested |
+| `explain_failure` | Why a test fails: diagnosis, log lines and the learner's code at that commit |
+| `get_hint` | Requests the next hint and returns it when the bot publishes it |
+| `ci_status` | The last push and the result of each tested stage |
+| `read_my_code` | Reads the learner's repo in Forgejo |
+| `my_stats` | Streak, record, and courses created, started and finished |
 
-Y prompts, que en Claude Code aparecen como comandos: `/mcp__byox__atascado`,
-`/mcp__byox__que_sigue`, `/mcp__byox__revisar_etapa` y `/mcp__byox__crear_curso`.
-La web muestra si hay un asistente conectado: como el MCP no tiene sesiones, cuenta
-como conectado el cliente que lo usó en los últimos 15 minutos. Más en
-[Asistente (MCP)](mcp/web/src/docs/asistente.md).
+There are also prompts, which show up as commands in Claude Code: `/mcp__byox__atascado`,
+`/mcp__byox__que_sigue`, `/mcp__byox__revisar_etapa` and `/mcp__byox__crear_curso`. The web app
+shows whether an assistant is connected: since the MCP has no sessions, a client counts as
+connected if it used the MCP in the last 15 minutes. More in
+[Asistente (MCP)](mcp/web/src/docs/asistente.md) (Spanish).
 
-## Cuentas y permisos
+## Accounts and permissions
 
-Las cuentas son usuarios de Forgejo; byox no guarda contraseñas. La web usa una sesión
-(cookie `HttpOnly`) y el MCP y el CLI, tokens personales `byox_…` (se guardan hasheados).
+Accounts are Forgejo users; byox does not store passwords. The web app uses a session
+(`HttpOnly` cookie), and the MCP and the CLI use personal `byox_…` tokens (stored hashed).
 
-| Variable | Valores | Qué hace |
+| Variable | Values | What it does |
 |---|---|---|
-| `BYOX_SIGNUP` | `closed` (defecto), `invite`, `open` | Quién puede crear cuenta |
-| `BYOX_AUTHORS` | `admin` (defecto), `all` | Quién escribe, verifica e importa cursos (corre código en Docker) |
-| `BYOX_PUBLIC_URL`, `BYOX_DOMAIN`, `BYOX_WEB_URL` | URLs | Direcciones públicas cuando no es localhost |
-| `BYOX_TRUST_PROXY`, `BYOX_SECURE_COOKIES` | `1` | Detrás de un proxy con HTTPS |
+| `BYOX_SIGNUP` | `closed` (default), `invite`, `open` | Who can create an account |
+| `BYOX_AUTHORS` | `admin` (default), `all` | Who writes, verifies and imports courses (it runs code in Docker) |
+| `BYOX_PUBLIC_URL`, `BYOX_DOMAIN`, `BYOX_WEB_URL` | URLs | Public addresses when it is not localhost |
+| `BYOX_TRUST_PROXY`, `BYOX_SECURE_COOKIES` | `1` | Behind an HTTPS proxy |
 
-Todas las variables están en [Configuración](mcp/web/src/docs/configuracion.md).
+All variables are in [Configuración](mcp/web/src/docs/configuracion.md) (Spanish).
 
-> **Límite conocido.** El bot `byox` es colaborador de todos los repos de alumnos y su
-> token va como secreto de Actions, y los tests corren con el Docker del host. Una
-> instancia compartida no está aislada entre desconocidos: usala con equipos y aulas
-> de confianza. Los detalles están en [SECURITY.md](SECURITY.md).
+> **Known limit.** The `byox` bot is a collaborator on every learner repo and its token is
+> available as an Actions secret, and the tests run with the host's Docker. A shared instance
+> is not isolated between strangers: use it with teams and classrooms you trust. Details in
+> [SECURITY.md](SECURITY.md).
 
-## En un servidor
+## On a server
 
-- **Postgres.** Por defecto Forgejo usa SQLite y el MCP guarda su estado (sesiones, tokens,
-  invitaciones, resultados) en archivos JSON de `BYOX_DATA`. Para un servidor,
-  `docker-compose.cloud.yml` pasa los dos a Postgres (una base y un usuario por servicio):
-  poné `COMPOSE_FILE=docker-compose.yml:docker-compose.cloud.yml` en el `.env` y corré `./setup.sh`,
-  que genera las contraseñas. Con `DATABASE_URL` en su entorno el MCP usa Postgres (tabla `kv`,
-  se crea sola). Forgejo elige la base al arrancar por primera vez: para mover una instalación
-  que ya existe hay que hacer `forgejo dump` y restaurar.
-- **Una VPS.** [`deploy/vps`](deploy/vps/README.md) trae el paso a paso: DNS, `bootstrap.sh` (usuario
-  `deploy`, firewall, Docker, Caddy), HTTPS, backups, monitor y avisos a Discord por webhook.
-- **Simulación.** [`deploy/k8s-sim`](deploy/k8s-sim) levanta en kind el equivalente a dos VPS
-  (una con el núcleo, otras con runners) para probar la topología.
-- La guía general: [Llevarlo a producción](mcp/web/src/docs/produccion.md).
+- **Postgres.** By default Forgejo uses SQLite and the MCP keeps its state (sessions, tokens,
+  invitations, results) in JSON files in `BYOX_DATA`. For a server, `docker-compose.cloud.yml`
+  moves both to Postgres (one database and one user per service): set
+  `COMPOSE_FILE=docker-compose.yml:docker-compose.cloud.yml` in `.env` and run `./setup.sh`, which
+  generates the passwords. With `DATABASE_URL` in its environment the MCP uses Postgres (a `kv`
+  table, created automatically). Forgejo picks its database the first time it starts: to move an
+  existing install you have to run `forgejo dump` and restore.
+- **Simulation.** [`deploy/k8s-sim`](deploy/k8s-sim) brings up in kind the equivalent of two VPS
+  (one with the core, others with runners) to test the topology.
+- The general guide: [Llevarlo a producción](mcp/web/src/docs/produccion.md) (Spanish).
 
-## Qué crea byox
+## What byox creates
 
 ```
-cursos/<slug>            repo fuente (lo escribe la IA o una persona)
-├── README.md            portada
-├── course.yaml          milestones, issues, deps, tests, pistas
-├── issues/*.md          cuerpo de cada issue
-├── files/**             esqueleto que recibe el alumno
-└── solution/**          solución de referencia (no se publica)
+cursos/<slug>            source repo (written by the AI or a person)
+├── README.md            cover page
+├── course.yaml          milestones, issues, deps, tests, hints
+├── issues/*.md          body of each issue
+├── files/**             skeleton the learner receives
+└── solution/**          reference solution (not published)
 
-<vos>/<slug>             tu repo (lo crea start_course)
-├── .course/run.sh       corre los tests: sh .course/run.sh [n...]
-├── .course/byox.mjs     plan / advance / hint, lo usan los workflows
-└── .forgejo/workflows/  byox.yml (push) y pista.yml (/pista)
+<you>/<slug>             your repo (created by start_course)
+├── .course/run.sh       runs the tests: sh .course/run.sh [n...]
+├── .course/byox.mjs     plan / advance / hint, used by the workflows
+└── .forgejo/workflows/  byox.yml (push) and pista.yml (/pista)
 ```
 
-En cada push a `main`: **plan** lista los issues abiertos; **test** corre el test de cada
-uno en la imagen del curso; **advance** cierra los que pasaron y tienen sus dependencias
-cerradas (en cascada), mueve los labels `bloqueado` y `disponible` y avisa al MCP para
-actualizar tu perfil. Comentar `/pista` en un issue publica la siguiente pista; las pistas
-viajan como secreto de Actions y no están en tu repo. El MCP mantiene además
-`<vos>/.profile`, que Forgejo muestra en tu perfil: racha, cursos y un heatmap de 16 semanas.
-Más detalle en [Cómo funciona](mcp/web/src/docs/como-funciona.md).
+On every push to `main`: **plan** lists the open issues; **test** runs each one's test in the
+course image; **advance** closes the ones that passed and have their dependencies closed
+(cascading), moves the `bloqueado` and `disponible` labels and notifies the MCP to update your
+profile. Commenting `/pista` on an issue publishes the next hint; hints travel as an Actions
+secret and are not in your repo. The MCP also maintains `<you>/.profile`, which Forgejo shows on
+your profile: streak, courses and a 16-week heatmap. More in
+[Cómo funciona](mcp/web/src/docs/como-funciona.md) (Spanish).
 
-## Escribir y compartir cursos
+## Writing and sharing courses
 
-Además de pedírselo a la IA, podés armar un curso vos, con tu editor y git:
+Besides asking the AI, you can build a course yourself with your editor and git:
 
 ```bash
 byox new build-your-own-grep --lang rust --title "build-your-own-grep"
 cd build-your-own-grep
-# course.yaml, issues/, files/ (lo que recibe el alumno) y solution/
+# course.yaml, issues/, files/ (what the learner receives) and solution/
 git push
 byox check
 byox start build-your-own-grep
 ```
 
-`byox new` crea `cursos/<curso>` desde una plantilla con dos issues, tests y solución que
-ya pasan la verificación, con `origin: human` en `course.yaml`. Forgejo avisa al MCP en
-cada push al repo fuente y el MCP lo verifica solo (15 s después del último push): con
-`files/` cada test tiene que fallar y con `files/` + `solution/`, pasar. El formato
-completo: `byox guide` o [Crear y compartir cursos](mcp/web/src/docs/cursos.md).
+`byox new` creates `cursos/<course>` from a template with two issues, tests and a solution that
+already pass verification, with `origin: human` in `course.yaml`. Forgejo notifies the MCP on every
+push to the source repo and the MCP verifies it by itself (15 s after the last push): with `files/`
+every test must fail, and with `files/` + `solution/`, pass. The full format: `byox guide` or
+[Crear y compartir cursos](mcp/web/src/docs/cursos.md) (Spanish).
 
-`byox export <curso>` copia al portapapeles un código `byox1-…`: el repo fuente entero (con
-la solución) comprimido. No pasa por ningún servidor: lo mandás por donde quieras y la otra
-persona lo pega en `byox import` o en **Importar** de la web. Los tests de un curso
-importado corren en tu Docker: importá códigos de gente en la que confiás.
+`byox export <course>` copies a `byox1-…` code to the clipboard: the whole source repo (with the
+solution), compressed. It does not go through any server: you send it however you like and the
+other person pastes it into `byox import` or into **Import** in the web app. The tests of an
+imported course run on your Docker: only import codes from people you trust.
 
-## Contribuir
+## Contributing
 
-Las contribuciones son bienvenidas: código, cursos nuevos, documentación y reportes de
-errores. [CONTRIBUTING.md](CONTRIBUTING.md) explica cómo levantar el entorno, correr los
-tests, el formato de los commits y cómo proponer un curso. Participar implica respetar el
-[código de conducta](CODE_OF_CONDUCT.md). Las vulnerabilidades se reportan en privado, como
-indica [SECURITY.md](SECURITY.md).
+Contributions are welcome: code, new courses, documentation and bug reports.
+[CONTRIBUTING.md](CONTRIBUTING.md) explains how to set up the environment, run the tests, the
+commit format and how to propose a course. Taking part means respecting the
+[code of conduct](CODE_OF_CONDUCT.md). Vulnerabilities are reported privately, as described in
+[SECURITY.md](SECURITY.md). Issues and pull requests can be written in English or Spanish.
 
-## Licencias
+## Licenses
 
-Cada parte tiene la licencia que mejor le calza, con el texto completo en el `LICENSE` de su carpeta.
+Each part has the license that fits it best, with the full text in the `LICENSE` of its folder.
 
-| Qué | Licencia | Dónde |
+| What | License | Where |
 |---|---|---|
-| Código: app, API, servidor MCP, web, CLI, `setup.sh` y Compose | [AGPL-3.0-or-later](LICENSE) | raíz del repositorio |
-| Plantillas, workflows y guía que byox copia a los repositorios de los alumnos | [MIT](mcp/assets/LICENSE) | `mcp/assets/` |
-| Cursos de ejemplo | [CC BY-SA 4.0](courses/LICENSE) | `courses/`, `examples/` |
-| Documentación | [CC BY 4.0](mcp/web/src/docs/LICENSE) | `mcp/web/src/docs/` |
+| Code: app, API, MCP server, web, CLI, `setup.sh` and Compose | [AGPL-3.0-or-later](LICENSE) | repository root |
+| Templates, workflows and guide that byox copies into learners' repositories | [MIT](mcp/assets/LICENSE) | `mcp/assets/` |
+| Bundled courses | [CC BY-SA 4.0](courses/LICENSE) | `courses/`, `examples/` |
+| Documentation | [CC BY 4.0](mcp/web/src/docs/LICENSE) | `mcp/web/src/docs/` |
 
-- Podés usar, modificar y autoalojar byox gratis. Si ofrecés una versión modificada como servicio en red, la AGPL te pide publicar tus cambios bajo la misma licencia.
-- Lo que byox genera dentro de los repositorios de tus alumnos (workflows, scripts de prueba) es MIT, así que no impone condiciones a tus cursos. Los cursos que escribas son tuyos y los licenciás como quieras.
-- Los cursos de `courses/` y `examples/` citan sus fuentes (especificaciones, documentación y libros) en la sección «Para leer» de cada etapa y en su portada; esas obras conservan sus propias licencias.
-- Las dependencias no están incluidas en el repositorio: se instalan con `npm` y `cargo`. Las directas son de licencias permisivas (MIT, ISC, Apache-2.0, OFL para las fuentes), salvo [GSAP](https://gsap.com/standard-license), que tiene una licencia propia de uso gratuito y no es de código abierto.
+- You can use, modify and self-host byox for free. If you offer a modified version as a network service, the AGPL requires you to publish your changes under the same license.
+- What byox generates inside your learners' repositories (workflows, test scripts) is MIT, so it places no conditions on your courses. The courses you write are yours and you license them as you like.
+- The courses in `courses/` and `examples/` cite their sources (specifications, documentation and books) in the "Para leer" section of each stage and on their cover page; those works keep their own licenses.
+- Dependencies are not included in the repository: they are installed with `npm` and `cargo`. The direct ones use permissive licenses (MIT, ISC, Apache-2.0, OFL for the fonts), except [GSAP](https://gsap.com/standard-license), which has its own free-of-charge license and is not open source.
