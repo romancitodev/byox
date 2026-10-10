@@ -1,17 +1,22 @@
+# Secretos y configuración local: nunca se suben (la plantilla es .env.example)
 .env
+.env.*
+!.env.example
+
+# Datos de la instancia (Forgejo, runner, MCP)
 data/
-mcp/node_modules/
-mcp/dist/
-cli/target/
-mcp/web/node_modules/
-mcp/web/dist/
+
+# Dependencias y compilados
+node_modules/
+dist/
+target/
 mcp/web/.astro/
+__pycache__/
+*.pyc
 
 # Local y temporales
 .claude/
 .env.tmp
-.env.*
-!.env.example
 mcp/web/src/legacy/
 *.bak
 .DS_Store
@@ -19,3 +24,4 @@ mcp/web/src/legacy/
 # Notas internas y de negocio: no se publican
 MONETIZACION.md
 mcp/web/LANDING.md
+LANDING.md
