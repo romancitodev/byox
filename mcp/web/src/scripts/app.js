@@ -2300,6 +2300,8 @@ async function accountPage() {
   shell("account", crumb([{ label: t("Cuenta") }]), "", loading);
   const me = S.me ?? (await api("/auth/me"));
   S.me = me;
+  // El modo de registro sólo se leía en la pantalla de login: con la sesión ya iniciada las invitaciones no aparecían.
+  S.authState ??= await api("/auth/state").catch(() => ({ signup: "closed", minPassword: 10 }));
   const [tokens, invites] = await Promise.all([
     api("/auth/tokens").catch(() => []),
     me.admin && S.authState?.signup === "invite" ? api("/auth/invites").catch(() => []) : [],
