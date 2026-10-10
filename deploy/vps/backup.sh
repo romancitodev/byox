@@ -11,13 +11,19 @@
 #
 # Si BACKUP_RCLONE_REMOTE está definido (ej. "b2:byox-backups") y hay rclone, sube la copia ahí.
 # Una copia que sólo vive en el mismo servidor no es una copia.
-set -euo pipefail
+set -Eeuo pipefail
 
 BYOX_DIR="${BYOX_DIR:-$HOME/byox}"
 BACKUP_DIR="${BACKUP_DIR:-$HOME/backups}"
 KEEP_DAYS="${KEEP_DAYS:-7}"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$BYOX_DIR"
 [ -f .env ] && set -a && . ./.env && set +a
+# shellcheck source=discord.sh
+. "$HERE/discord.sh"
+started="$(date +%s)"
+# Cualquier paso que falle avisa a Discord (si hay webhook) antes de salir.
+trap 'discord error "Backup falló" "Línea $LINENO: $BASH_COMMAND"' ERR
 
 dest="$BACKUP_DIR/$(date +%F)"
 mkdir -p "$dest"
@@ -36,7 +42,11 @@ restart
 trap - EXIT
 
 # Un pg_dumpall vacío o truncado no sirve: falla en voz alta.
-[ "$(gzip -dc "$dest/postgres.sql.gz" | wc -c)" -gt 1000 ] || { echo "postgres.sql.gz sospechosamente chico" >&2; exit 1; }
+if [ "$(gzip -dc "$dest/postgres.sql.gz" | wc -c)" -le 1000 ]; then
+  echo "postgres.sql.gz sospechosamente chico" >&2
+  discord error "Backup sospechoso" "postgres.sql.gz casi vacío: la copia de la base no sirve."
+  exit 1
+fi
 
 find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d -mtime "+$KEEP_DAYS" -exec rm -rf {} +
 
@@ -44,3 +54,4 @@ if [ -n "${BACKUP_RCLONE_REMOTE:-}" ] && command -v rclone >/dev/null 2>&1; then
   rclone copy "$dest" "$BACKUP_RCLONE_REMOTE/$(basename "$dest")"
 fi
 echo "$(date -Is) ok → $dest"
+discord info "Backup listo" "Tamaño: $(du -sh "$dest" | cut -f1)"$'\n'"Tiempo: $(( $(date +%s) - started )) s"$'\n'"Guardado en: $dest"

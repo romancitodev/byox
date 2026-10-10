@@ -59,10 +59,46 @@ Probá `https://app.byox.dev/health` (debe responder `ok`) y entrá a `https://a
 
 - [ ] Probar un curso completo: empezar, push, ver el resultado de los tests en la app.
 - [ ] Revisar `docker stats` y `free -m` con un par de jobs en paralelo; ajustar `capacity` en `data/runner/config.yml` (2 por defecto) y `docker compose restart runner`.
-- [ ] Backups: `crontab -e` con la línea de `backup.sh`, y **probar restaurar** (pasos en la guía `/docs/produccion`, versión con Postgres abajo).
+- [ ] Avisos a Discord y backups programados: ver "Avisos a Discord" abajo, que además deja el cron del backup. **Probá restaurar** (pasos abajo).
 - [ ] Copia fuera de la VPS (rclone a B2/S3/Storage Box con `BACKUP_RCLONE_REMOTE`).
 - [ ] Un monitor externo (UptimeRobot, Better Stack) sobre `https://app.byox.dev/health`.
 - [ ] `BYOX_SIGNUP=invite` en `.env` y `docker compose up -d` cuando quieras sumar gente.
+
+## Avisos a Discord
+
+Hay dos partes. El servidor de byox avisa de lo que pasa en la app; los scripts de esta carpeta avisan de lo que pasa en la máquina.
+
+| Quién | Qué avisa |
+|---|---|
+| byox (MCP) | Arranque y parada, cuentas nuevas, cursos creados, resultado de `verify_course`, intentos de login y registro bloqueados, login de administrador, errores 500 y excepciones, Forgejo o el runner caídos, disco lleno |
+| `monitor.sh` (cron, 5 min) | Disco, memoria y swap, contenedores caídos, byox y Forgejo por HTTPS, certificados por vencer, backup atrasado, reinicio pendiente |
+| `backup.sh` (cron, diario) | Si el backup salió bien (con tamaño y tiempo) o falló |
+| `ssh-login-alert.sh` | Cada inicio de sesión SSH; una IP nueva sale como advertencia |
+
+Los avisos repetidos se agrupan, y los de la máquina sólo llegan cuando algo cambia (o cada 6 h si sigue roto).
+
+1. En Discord, en el canal que quieras: Ajustes del canal → Integraciones → Webhooks → Nuevo webhook → Copiar URL. **Es un secreto**: quien la tenga puede escribir en tu canal. No la pegues en chats ni en git.
+2. Para que te mencione sólo en los errores, copiá tu ID (Ajustes → Avanzado → Modo desarrollador, y clic derecho en tu usuario → Copiar ID).
+3. En la VPS, agregá las líneas al `.env` (ver `.env.example`):
+
+```bash
+cat >> ~/byox/.env <<'EOF'
+DISCORD_WEBHOOK_URL=<pegá acá la URL>
+DISCORD_PING_USER=<tu id>
+EOF
+```
+
+4. Activalo todo (manda un mensaje de prueba y deja los cron y el aviso de SSH; se puede repetir):
+
+```bash
+cd ~/byox && git pull && ./deploy/vps/install-alerts.sh
+```
+
+5. Reiniciá byox para que tome las variables: `docker compose up -d`.
+
+Por defecto no avisa cuando alguien empieza un curso (es mucho ruido): sumá `DISCORD_EVENTS=all` al `.env` si lo querés.
+
+Para probar los scripts sin Discord: `bash deploy/vps/test.sh` (en Windows: `docker run --rm -v "$PWD:/w" -w /w node:22-bookworm bash deploy/vps/test.sh`).
 
 ## Restaurar una copia (con Postgres)
 
