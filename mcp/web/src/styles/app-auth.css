@@ -8,10 +8,10 @@
 .auth-card > p.muted { margin: 0 0 18px; }
 .auth-card .notice { margin-bottom: 14px; }
 .auth-form { display: grid; gap: 14px; }
-.auth-form .field, .pw-form .field { display: grid; gap: 6px; }
-.auth-form .field > span, .pw-form .field > span { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
-.auth-form input, .pw-form input, .tok-new input { height: 38px; padding: 0 11px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--sunk); color: var(--ink); font: inherit; }
-.auth-form input:focus, .pw-form input:focus, .tok-new input:focus { outline: none; border-color: var(--ember); box-shadow: var(--ring); }
+.auth-form .field, .pw-form .field, .inv-new .field { display: grid; gap: 6px; }
+.auth-form .field > span, .pw-form .field > span, .inv-new .field > span { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+.auth-form input, .pw-form input, .tok-new input, .inv-new input, .inv-new select { height: 38px; padding: 0 11px; border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--sunk); color: var(--ink); font: inherit; min-width: 0; }
+.auth-form input:focus, .pw-form input:focus, .tok-new input:focus, .inv-new input:focus, .inv-new select:focus { outline: none; border-color: var(--ember); box-shadow: var(--ring); }
 .auth-form .btn.primary { height: 40px; justify-content: center; }
 .auth-err { padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--bad) 40%, var(--line)); border-left: 3px solid var(--bad); border-radius: var(--r-md); background: color-mix(in srgb, var(--bad) 7%, var(--surface)); color: var(--ink); font-size: 13.5px; }
 .auth-alt { margin: 16px 0 0; font-size: 13.5px; color: var(--ink-2); }
@@ -51,3 +51,9 @@
 /* Los selectores segmentados no se estiran: miden lo que sus botones */
 .acct .seg { justify-self: start; width: fit-content; }
 @media (max-width: 560px) { .tok-new { flex-direction: column; } .tok-list li { flex-wrap: wrap; } .pw-form { grid-template-columns: minmax(0, 1fr); } }
+
+/* Invitaciones: el formulario en una fila, y cada código con su estado y quiénes se registraron */
+.inv-new { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px 12px; align-items: end; }
+.inv-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.inv-users { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+@media (max-width: 720px) { .inv-new { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .inv-new .field:first-child, .inv-new .btn { grid-column: 1 / -1; } }

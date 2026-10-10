@@ -2291,6 +2291,21 @@ async function logout() {
 }
 
 const when = (iso) => (iso ? ago(iso) : t("nunca"));
+// Invitaciones: una fila por código, con su estado, su vencimiento, cuántas cuentas creó y quiénes son.
+const INV_STATE = { get active() { return t("Activo"); }, get used() { return t("Agotado"); }, get expired() { return t("Vencido"); }, get revoked() { return t("Revocado"); } };
+const INV_BADGE = { active: "on", used: "done", expired: "locked", revoked: "locked" };
+const dateTime = (iso) => new Date(iso).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const inviteRow = (i) => {
+  const cap = i.max === null ? t("{used} cuentas · sin límite", { used: i.used }) : t(i.max === 1 ? "{used} de 1 cuenta" : "{used} de {max} cuentas", { used: i.used, max: i.max });
+  const exp = !i.expires ? t("no vence") : i.state === "expired" ? t("venció {when}", { when: dateTime(i.expires) }) : t("vence {when}", { when: dateTime(i.expires) });
+  const users = i.uses.length
+    ? `<div class="inv-users"><span class="muted">${t("Se registraron:")}</span>${i.uses.map((u) => `<span class="chip" title="${esc(dateTime(u.at))}">${esc(u.user)}</span>`).join("")}</div>`
+    : "";
+  return `<li><div>
+    <div class="inv-top"><b>${i.note ? esc(i.note) : `<span class="muted">${t("Sin nota")}</span>`}</b><span class="badge ${INV_BADGE[i.state]}">${INV_STATE[i.state]}</span></div>
+    <small class="muted">${cap} · ${exp} · ${t("creado {when}", { when: ago(i.created) })}</small>${users}
+  </div>${i.state === "active" ? `<button class="btn" data-inv-revoke="${esc(i.id)}">${t("Revocar")}</button>` : ""}</li>`;
+};
 const tokenCmds = (tok) => [
   ["Claude Code", `claude mcp add --transport http byox ${mcpUrl()} --header "Authorization: Bearer ${tok}"`],
   [t("CLI de byox"), `byox login ${tok}`],
@@ -2335,9 +2350,15 @@ async function accountPage() {
     </div></section>
 
     ${me.admin && S.authState?.signup === "invite" ? `<section class="card"><div class="card-h"><span>${t("Invitaciones")}</span></div><div class="card-b">
-      <p class="muted">${t("Cada código sirve para una cuenta.")} ${invites.length ? t("Hay {n}.", { n: plural(invites.length, "código sin usar", "códigos sin usar") }) : t("No hay códigos sin usar.")}</p>
-      <button class="btn" data-act="invite">${t("Crear código")}</button>
+      <p class="muted">${t("Crea un código por persona o por grupo. Elige cuánto dura y cuántas cuentas puede crear; abajo ves quién se registró con cada uno.")}</p>
+      <form class="inv-new">
+        <label class="field"><span>${t("Para quién (opcional)")}</span><input name="note" maxlength="80" autocomplete="off" placeholder="${t("Por ejemplo: Ana")}" /></label>
+        <label class="field"><span>${t("Vence")}</span><select name="ttl"><option value="24">${t("En 1 día")}</option><option value="168" selected>${t("En 7 días")}</option><option value="720">${t("En 30 días")}</option><option value="">${t("Nunca")}</option></select></label>
+        <label class="field"><span>${t("Cuentas que puede crear")}</span><select name="max"><option value="1" selected>1</option><option value="5">5</option><option value="10">10</option><option value="25">25</option><option value="100">100</option><option value="">${t("Sin límite")}</option></select></label>
+        <button class="btn primary" type="submit">${t("Crear código")}</button>
+      </form>
       <div class="inv-out" hidden></div>
+      ${invites.length ? `<ul class="tok-list inv-list">${invites.map(inviteRow).join("")}</ul>` : `<p class="muted">${t("Todavía no creaste ningún código.")}</p>`}
     </div></section>` : ""}
   </div>`;
   shell("account", crumb([{ label: t("Cuenta") }]), "", html);
@@ -2398,18 +2419,39 @@ async function accountPage() {
     }
   });
   $app.querySelector("[data-act=logout]")?.addEventListener("click", logout);
-  $app.querySelector("[data-act=invite]")?.addEventListener("click", async (e) => {
+  $app.querySelector(".inv-new")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const btn = f.querySelector("button");
+    btn.disabled = true;
     try {
-      const { code } = await post("/auth/invites", {});
+      const { code } = await post("/auth/invites", {
+        note: f.note.value,
+        ttlHours: f.ttl.value === "" ? null : Number(f.ttl.value),
+        max: f.max.value === "" ? null : Number(f.max.value),
+      });
       const box = $app.querySelector(".inv-out");
       box.hidden = false;
-      box.innerHTML = `<p class="muted">${t("Compártelo con quien vaya a registrarse:")}</p>${cmdBox(code)}`;
+      box.innerHTML = `<div class="notice done"><span><b>${t("Copia el código ahora.")}</b> ${t("No volverá a mostrarse.")}</span></div>${cmdBox(code)}<div><button class="btn" data-act="reload">${t("Listo")}</button></div>`;
       paint();
-      e.target.blur();
     } catch (ex) {
       toast(errText(ex), "circle-x");
+    } finally {
+      btn.disabled = false;
     }
   });
+  $app.querySelectorAll("[data-inv-revoke]").forEach((b) =>
+    b.addEventListener("click", async () => {
+      if (!confirm(t("¿Revocar este código? Nadie más podrá usarlo."))) return;
+      try {
+        await api(`/auth/invites/${b.dataset.invRevoke}`, { method: "DELETE" });
+        toast(t("Código revocado"));
+        accountPage();
+      } catch (ex) {
+        toast(errText(ex), "circle-x");
+      }
+    }),
+  );
   paint();
 }
 

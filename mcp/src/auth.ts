@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Forgejo } from "./forgejo.js";
+import { InviteError, Invites, type InviteProblem } from "./invites.js";
 import { notify } from "./notify.js";
 import type { Db, Table } from "./store.js";
 
@@ -37,6 +38,13 @@ const MIN_PASSWORD = 10;
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const rand = (n: number) => randomBytes(n).toString("base64url");
+const INVITE_MESSAGES: Record<InviteProblem, string> = {
+  invalid: "Necesitas un código de invitación válido.",
+  expired: "Este código de invitación venció.",
+  exhausted: "Este código de invitación ya llegó a su límite de cuentas.",
+  ttl: "La duración debe ser de 1 hora a 365 días.",
+  max: "El máximo de cuentas debe ser un número de 1 a 1000, o ilimitado.",
+};
 
 class HttpError extends Error {
   constructor(public status: number, message: string) {
@@ -70,6 +78,12 @@ const EN: Record<string, string> = {
   "No existe ese token.": "That token does not exist.",
   "Sólo un administrador puede invitar.": "Only an administrator can invite.",
   "Sólo un administrador puede ver las invitaciones.": "Only an administrator can view invitations.",
+  "Sólo un administrador puede revocar invitaciones.": "Only an administrator can revoke invitations.",
+  "No existe esa invitación.": "That invitation does not exist.",
+  "Este código de invitación venció.": "This invitation code has expired.",
+  "Este código de invitación ya llegó a su límite de cuentas.": "This invitation code has reached its account limit.",
+  "La duración debe ser de 1 hora a 365 días.": "The duration must be between 1 hour and 365 days.",
+  "El máximo de cuentas debe ser un número de 1 a 1000, o ilimitado.": "The account limit must be a number from 1 to 1000, or unlimited.",
   "No encontrado.": "Not found.",
   "Error interno.": "Internal error.",
   "Origen no permitido.": "Origin not allowed.",
@@ -87,7 +101,6 @@ export function localize(msg: string, req: IncomingMessage): string {
 
 interface Session { u: string; exp: number }
 interface Pat { u: string; name: string; created: string; last?: string }
-interface Invite { by: string; created: string; note?: string }
 
 /** Ventanas de intentos por clave, para frenar fuerza bruta y abuso del registro. */
 class Limiter {
@@ -113,7 +126,7 @@ class Limiter {
 export class Auth {
   private sessions: Table<Session>;
   private tokens: Table<Pat>;
-  private invites: Table<Invite>;
+  private invites: Invites;
   private secret = "";
   private seen = new Map<string, { at: number; admin: boolean; ok: boolean }>();
   private logins = new Limiter(8, 10 * 60_000);
@@ -123,7 +136,7 @@ export class Auth {
     this.db = db;
     this.sessions = db.table("sessions");
     this.tokens = db.table("tokens");
-    this.invites = db.table("invites");
+    this.invites = new Invites(db.table("invites"));
   }
   private db: Db;
 
@@ -285,27 +298,34 @@ export class Auth {
           throw new HttpError(429, "Demasiados registros desde esta red. Prueba más tarde.");
         }
         const b = await readJson(req);
-        const code = String(b.invite ?? "").trim();
-        const invite = code ? await this.invites.get(sha(code)) : undefined;
-        if (this.cfg.signup === "invite" && !invite) throw new HttpError(403, "Necesitas un código de invitación válido.");
         const username = String(b.username ?? "").trim().toLowerCase();
         const email = String(b.email ?? "").trim().toLowerCase();
         const password = String(b.password ?? "");
-        if (!USERNAME.test(username) || RESERVED.has(username) || username === this.cfg.org || username === this.cfg.bot) {
-          throw new HttpError(400, "Usuario no válido: usa 2 a 39 letras minúsculas, números, '.', '-' o '_'.");
-        }
-        if (!EMAIL.test(email)) throw new HttpError(400, "Escribe un correo válido.");
-        if (password.length < MIN_PASSWORD) throw new HttpError(400, `La contraseña necesita al menos ${MIN_PASSWORD} caracteres.`);
-        if (await this.fj.find(`/users/${username}`)) throw new HttpError(409, "Ese usuario ya existe.");
-        await this.fj
-          .req("POST", "/admin/users", { username, email, password, must_change_password: false, send_notify: false, visibility: "private" })
-          .catch((e) => {
-            throw new HttpError(400, /email/i.test(e.message) ? "Ese correo ya está en uso." : "No pude crear la cuenta.");
+        const create = async () => {
+          if (!USERNAME.test(username) || RESERVED.has(username) || username === this.cfg.org || username === this.cfg.bot) {
+            throw new HttpError(400, "Usuario no válido: usa 2 a 39 letras minúsculas, números, '.', '-' o '_'.");
+          }
+          if (!EMAIL.test(email)) throw new HttpError(400, "Escribe un correo válido.");
+          if (password.length < MIN_PASSWORD) throw new HttpError(400, `La contraseña necesita al menos ${MIN_PASSWORD} caracteres.`);
+          if (await this.fj.find(`/users/${username}`)) throw new HttpError(409, "Ese usuario ya existe.");
+          await this.fj
+            .req("POST", "/admin/users", { username, email, password, must_change_password: false, send_notify: false, visibility: "private" })
+            .catch((e) => {
+              throw new HttpError(400, /email/i.test(e.message) ? "Ese correo ya está en uso." : "No pude crear la cuenta.");
+            });
+          return username;
+        };
+        let via = this.cfg.signup as string;
+        if (this.cfg.signup === "invite") {
+          // El código se gasta sólo si la cuenta se crea: un usuario repetido o una contraseña corta no lo consumen.
+          const used = await this.invites.redeem(String(b.invite ?? ""), create).catch((e) => {
+            throw e instanceof InviteError ? new HttpError(e.reason === "invalid" ? 403 : 410, INVITE_MESSAGES[e.reason]) : e;
           });
-        if (invite) {
-          await this.invites.del(sha(code));
+          via = used.note ? `invitación «${used.note}»` : "invitación";
+        } else {
+          await create();
         }
-        notify.send("signup", "info", "Nueva cuenta", { Usuario: username, Registro: invite ? "con invitación" : this.cfg.signup });
+        notify.send("signup", "info", "Nueva cuenta", { Usuario: username, Registro: via });
         await this.startSession(req, res, username);
         return send(await this.me({ user: username, admin: false, via: "session" }), 201), true;
       }
@@ -356,13 +376,22 @@ export class Auth {
       if (route === "POST /api/auth/invites") {
         if (!who.admin) throw new HttpError(403, "Sólo un administrador puede invitar.");
         const b = await readJson(req);
-        const code = `inv_${rand(12)}`;
-        await this.invites.set(sha(code), { by: who.user, created: new Date().toISOString(), note: String(b.note ?? "").slice(0, 80) || undefined });
-        return send({ code }, 201), true;
+        // ttlHours y max son opcionales: sin ellos el código no vence y sirve para una cuenta. max: null es ilimitado.
+        const made = await this.invites
+          .create(who.user, { note: String(b.note ?? ""), ttlHours: b.ttlHours === undefined ? undefined : b.ttlHours === null ? null : Number(b.ttlHours), max: b.max === undefined ? undefined : b.max === null ? null : Number(b.max) })
+          .catch((e) => {
+            throw e instanceof InviteError ? new HttpError(400, INVITE_MESSAGES[e.reason]) : e;
+          });
+        return send(made, 201), true;
       }
       if (route === "GET /api/auth/invites") {
         if (!who.admin) throw new HttpError(403, "Sólo un administrador puede ver las invitaciones.");
-        return send((await this.invites.entries()).map(([, i]) => ({ by: i.by, created: i.created, note: i.note ?? null }))), true;
+        return send(await this.invites.list()), true;
+      }
+      if (req.method === "DELETE" && (r = /^\/api\/auth\/invites\/([0-9a-f]{12})$/.exec(p))) {
+        if (!who.admin) throw new HttpError(403, "Sólo un administrador puede revocar invitaciones.");
+        if (!(await this.invites.revoke(r[1]))) throw new HttpError(404, "No existe esa invitación.");
+        return send({ ok: true }), true;
       }
 
       throw new HttpError(404, "No encontrado.");

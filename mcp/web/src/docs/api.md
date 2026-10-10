@@ -57,8 +57,9 @@ Los errores devuelven un cuerpo `{ "error": "mensaje" }` y el código HTTP corre
 | `GET /api/auth/tokens` | Tus tokens, sin el valor secreto. | Sesión o token |
 | `POST /api/auth/tokens` | `{ name }`. Crea un token y devuelve su valor, una única vez. | Solo sesión |
 | `DELETE /api/auth/tokens/:id` | Revoca un token. | Sesión o token |
-| `POST /api/auth/invites` | `{ note? }`. Crea un código de invitación de un solo uso. | Administrador |
-| `GET /api/auth/invites` | Los códigos sin usar. | Administrador |
+| `POST /api/auth/invites` | `{ note?, ttlHours?, max? }`. Crea un código y lo devuelve completo (`{ code, id }`), una sola vez. `ttlHours`: de 1 a 8760 horas; sin valor, no vence. `max`: de 1 a 1000 cuentas; sin valor, una; `null`, sin límite. | Administrador |
+| `GET /api/auth/invites` | Todos los códigos, los más nuevos primero: `{ id, note, by, created, expires, max, used, state, uses: [{ user, at }] }`. `state` es `active`, `used`, `expired` o `revoked`. | Administrador |
+| `DELETE /api/auth/invites/<id>` | Revoca un código. Si ya creó cuentas queda en la lista como `revoked`; si no, se borra. | Administrador |
 
 ## Cursos y progreso
 

@@ -58,7 +58,25 @@ Agrega `--admin` para crear un administrador. La persona puede cambiar su contra
 
 ## Invitaciones
 
-Con `BYOX_SIGNUP=invite`, un administrador abre **Cuenta → Invitaciones** y pulsa **Crear código**. Cada código sirve para una sola cuenta y se consume al usarse. La persona invitada abre la pantalla de inicio de sesión, elige **Crear una**, y completa usuario, correo, contraseña y el código.
+Con `BYOX_SIGNUP=invite`, un administrador abre **Cuenta → Invitaciones**, completa el formulario y pulsa **Crear código**. Cada código se configura con:
+
+| Campo | Qué hace |
+|---|---|
+| Para quién | Una nota opcional (hasta 80 caracteres) para reconocerlo en la lista. |
+| Vence | En 1 día, 7 días, 30 días o nunca. Pasada la fecha, el código deja de servir. |
+| Cuentas que puede crear | 1, 5, 10, 25, 100 o sin límite. Cuando llega al tope, queda **agotado**. |
+
+El código se muestra completo una sola vez, al crearlo: byox solo guarda su huella. Debajo del formulario, la lista muestra cada código con su estado (**activo**, **agotado**, **vencido** o **revocado**), cuántas cuentas creó y **quiénes se registraron con él**. **Revocar** deja de aceptarlo: si nadie lo usó se borra, y si ya tenía cuentas queda en la lista para que veas quiénes eran.
+
+La persona invitada abre la pantalla de inicio de sesión, elige **Crear una**, y completa usuario, correo, contraseña y el código. Si la cuenta no se puede crear (usuario repetido, contraseña corta), el código no se gasta.
+
+<div class="callout warn" data-t="Un código sin límite de cuentas">
+
+Un código «sin límite» que no vence sirve para que entre cualquiera que lo tenga. Úsalo solo con vencimiento y para un grupo que conoces, y revócalo cuando termine el evento.
+
+</div>
+
+Los códigos creados antes de esta versión siguen sirviendo para una sola cuenta.
 
 ## Sesiones
 
