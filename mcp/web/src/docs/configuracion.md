@@ -39,6 +39,7 @@ Cuando byox no corre en `localhost`, estas tres variables le dicen cuáles son l
 |---|---|---|
 | `BYOX_TRUST_PROXY` | vacío | Con `1`, byox confía en las cabeceras `X-Forwarded-For`, `-Host` y `-Proto`. Se usa para el límite de intentos de inicio de sesión por IP y para detectar HTTPS. |
 | `BYOX_SECURE_COOKIES` | vacío | Con `1`, la cookie de sesión se marca siempre como `Secure`. |
+| `BYOX_APP_ROOT` | vacío | Con `1`, la app se sirve en la raíz del dominio (`app.ejemplo.com/cursos`) en vez de en `/app`, y no se muestra la landing. Para un dominio dedicado a la app. |
 
 <div class="callout warn" data-t="Solo con un proxy de confianza">
 
@@ -94,6 +95,8 @@ El sitio estático (carpeta `mcp/web`) se puede publicar solo, por ejemplo en Ve
 |---|---|
 | `PUBLIC_LANDING_ONLY` | Con `1`, los botones «Empezar» apuntan a la documentación en lugar de a `/app`, y el menú ofrece «Instalar». |
 | `PUBLIC_APP_URL` | Dirección de una app ya desplegada (por ejemplo `https://app.ejemplo.com`). Si está definida, los botones apuntan a ella. |
+
+Si la app tiene un dominio propio, en el servidor puedes definir `BYOX_APP_ROOT=1`: la app se sirve en la raíz (`app.ejemplo.com/cursos`) en lugar de en `/app`, y las direcciones con `/app/...` redirigen a la equivalente sin prefijo. Con esta variable el servidor no muestra la landing; publícala aparte.
 
 ## El runner
 

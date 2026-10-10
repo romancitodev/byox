@@ -71,6 +71,8 @@ services:
       BYOX_TRUST_PROXY: ${BYOX_TRUST_PROXY:-}
       BYOX_SECURE_COOKIES: ${BYOX_SECURE_COOKIES:-}
       BYOX_SECRET: ${BYOX_SECRET:-}
+      # Un dominio sólo para la app: la sirve en la raíz (app.ejemplo.com/cursos) en lugar de en /app.
+      BYOX_APP_ROOT: ${BYOX_APP_ROOT:-}
     volumes:
       # Para verify_course: corre esqueleto y solución en la imagen del curso.
       - /var/run/docker.sock:/var/run/docker.sock

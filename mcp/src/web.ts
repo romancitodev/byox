@@ -16,6 +16,9 @@ import { diagnose, type Results } from "./results.js";
 type State = "done" | "ready" | "locked";
 const HINT_MARK = /<!-- byox:pista:(\d+) -->/;
 const DIST = new URL("../web/dist/", import.meta.url);
+/** Con BYOX_APP_ROOT=1 la app ocupa la raíz del dominio (app.ejemplo.com/cursos) y no hay landing: ésta vive aparte. */
+const APP_ROOT = process.env.BYOX_APP_ROOT === "1";
+const APP_ROUTE = /^\/(cursos|actividad|creados|cuenta|c)(\/|$)/;
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".json": "application/json; charset=utf-8",
@@ -366,8 +369,14 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
     let r: RegExpExecArray | null;
 
     // La landing está en /, la app en /app. Las rutas viejas de la app (links guardados, el CLI) redirigen.
-    if (req.method === "GET" && (p === "/cursos" || p === "/actividad" || p.startsWith("/c/"))) {
+    if (!APP_ROOT && req.method === "GET" && (p === "/cursos" || p === "/actividad" || p.startsWith("/c/"))) {
       res.writeHead(301, { Location: `/app${p}${url.search}` });
+      res.end();
+      return true;
+    }
+    // Con la app en la raíz, /app/... (el CLI y los links viejos) lleva a la misma ruta sin el prefijo.
+    if (APP_ROOT && req.method === "GET" && (p === "/app" || p.startsWith("/app/"))) {
+      res.writeHead(301, { Location: `${p.slice("/app".length) || "/"}${url.search}` });
       res.end();
       return true;
     }
@@ -382,7 +391,12 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
       send(res, 200, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache", "Content-Language": "en" }, await readFile(new URL("en/index.html", DIST)), "/en");
       return true;
     }
-    if (req.method === "GET" && (p === "/" || p === "/app" || p.startsWith("/app/"))) {
+    if (APP_ROOT && req.method === "GET" && (p === "/" || APP_ROUTE.test(p))) {
+      const page = (await readFile(new URL("app/index.html", DIST))).toString().replace("<html", '<html data-root="1"');
+      send(res, 200, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache" }, page, "/app-root");
+      return true;
+    }
+    if (!APP_ROOT && req.method === "GET" && (p === "/" || p === "/app" || p.startsWith("/app/"))) {
       send(res, 200, { "Content-Type": TYPES[".html"], "Cache-Control": "no-cache" }, await readFile(new URL(p === "/" ? "index.html" : "app/index.html", DIST)), p === "/" ? "/" : "/app");
       return true;
     }

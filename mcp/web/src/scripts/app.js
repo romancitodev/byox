@@ -6,9 +6,11 @@ import { LANG, locale, t, setLang } from "./i18n.js";
 import * as motion from "./motion.js";
 
 const $app = document.getElementById("app");
-/** La app vive en /app: el router del cliente resuelve /app, /app/cursos, /app/actividad y /app/c/<curso>/<n>. */
-const A = "/app";
-const appPath = () => location.pathname.replace(/^\/app(?=\/|$)/, "") || "/";
+/** La app vive en /app: el router del cliente resuelve /app, /app/cursos, /app/actividad y /app/c/<curso>/<n>.
+ *  Con BYOX_APP_ROOT=1 (un dominio sólo para la app) vive en la raíz y el servidor lo marca en <html data-root="1">. */
+const ROOT = document.documentElement.dataset.root === "1";
+const A = ROOT ? "" : "/app";
+const appPath = () => (ROOT ? location.pathname : location.pathname.replace(/^\/app(?=\/|$)/, "")) || "/";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const api = async (path, opts) => {
   // El servidor localiza sus mensajes de /api/auth según esta cabecera.
@@ -2514,7 +2516,7 @@ document.addEventListener("click", (e) => {
 // Doherty: precargar la etapa cuando la apuntás, así abre sin espera.
 function prefetch(e) {
   const a = e.target.closest?.("a[data-link]");
-  const m = a?.getAttribute("href").match(/^\/app\/c\/([^/]+)\/(\d+)$/);
+  const m = a?.getAttribute("href").match(/^(?:\/app)?\/c\/([^/]+)\/(\d+)$/);
   if (!m || !ctx || m[1] !== ctx.slug) return;
   const n = Number(m[2]);
   ctx.prefetching ??= new Set();
