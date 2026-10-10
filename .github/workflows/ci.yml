@@ -1,6 +1,6 @@
 name: CI
 
-# Sólo compila y prueba: este workflow no publica nada.
+# Only builds and tests: this workflow publishes nothing.
 on:
   push:
     branches: [main]
@@ -15,29 +15,21 @@ concurrency:
 
 jobs:
   mcp:
-    name: Servidor MCP (tsc y tests)
+    name: MCP server (tsc and tests)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Compilar con tsc
+      - name: Build with tsc
         run: docker build --target build -t byox-mcp:build ./mcp
-      - name: Correr los tests
+      - name: Run the tests
         run: docker run --rm -v "$PWD/mcp/test:/app/test:ro" byox-mcp:build node --test "test/*.test.mjs"
 
-  deploy-scripts:
-    name: Scripts de la VPS
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Correr deploy/vps/test.sh
-        run: docker run --rm -v "$PWD:/w" -w /w node:22-bookworm bash deploy/vps/test.sh
-
   web:
-    name: Web (Astro)
+    name: Web app (Astro)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Compilar la landing, la documentación y la app
+      - name: Build the landing page, documentation and app
         run: docker build --target web -t byox-mcp:web ./mcp
 
   cli:
@@ -45,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Compilar
+      - name: Build
         working-directory: cli
         run: |
           rustup toolchain install stable --profile minimal

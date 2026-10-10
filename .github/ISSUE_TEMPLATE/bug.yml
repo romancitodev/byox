@@ -1,53 +1,54 @@
-name: Error
-description: Algo no funciona como dice la documentación
-title: "[Error] "
+name: Bug report
+description: Something does not work as the documentation says
+title: "[Bug] "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Gracias por reportarlo. Si es un problema de seguridad, **no lo publiques acá**: usá el reporte privado (ver SECURITY.md).
-        No pegues tokens, contraseñas ni el contenido de tu `.env`.
+        Thanks for reporting it. You can write in English or Spanish (también se acepta español).
+        If it is a security problem, **do not post it here**: use private reporting (see SECURITY.md).
+        Do not paste tokens, passwords or the contents of your `.env`.
   - type: dropdown
-    id: componente
+    id: component
     attributes:
-      label: Componente
+      label: Component
       options:
-        - Servidor MCP / API
-        - App web, landing o documentación
+        - MCP server / API
+        - Web app, landing page or documentation
         - CLI (byox)
-        - Instalación (setup.sh, Docker Compose)
-        - Despliegue (deploy/vps, deploy/k8s-sim)
-        - Un curso (courses/ o examples/)
-        - No sé
+        - Installation (setup.sh, Docker Compose)
+        - Deploy (deploy/k8s-sim)
+        - A course (courses/ or examples/)
+        - I don't know
     validations:
       required: true
   - type: textarea
-    id: que-paso
+    id: what-happened
     attributes:
-      label: Qué pasó
-      description: Qué esperabas y qué ocurrió en cambio.
+      label: What happened
+      description: What you expected and what happened instead.
     validations:
       required: true
   - type: textarea
-    id: pasos
+    id: steps
     attributes:
-      label: Cómo reproducirlo
+      label: How to reproduce it
       placeholder: |
         1. ...
         2. ...
     validations:
       required: true
   - type: textarea
-    id: entorno
+    id: environment
     attributes:
-      label: Entorno
-      description: Sistema operativo, versión de Docker, commit de byox, navegador si aplica, y las variables relevantes del `.env` (`BYOX_SIGNUP`, `BYOX_AUTHORS`, etc.; sin secretos).
+      label: Environment
+      description: Operating system, Docker version, byox commit, browser if it applies, and the relevant `.env` variables (`BYOX_SIGNUP`, `BYOX_AUTHORS`, etc.; no secrets).
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
-      label: Logs o salida
-      description: Por ejemplo `docker compose logs mcp`. Revisá que no tengan secretos.
+      label: Logs or output
+      description: For example `docker compose logs mcp`. Check that they contain no secrets.
       render: text

@@ -1,24 +1,25 @@
-## Qué cambia
+<!-- You can write in English or Spanish (también se acepta español). -->
 
-<!-- Una o dos frases. -->
+## What changes
 
-## Por qué
+<!-- One or two sentences. -->
 
-<!-- El problema o el issue que resuelve (Cierra #...). -->
+## Why
 
-## Cómo lo probé
+<!-- The problem or the issue it solves (Closes #...). -->
 
-<!-- Marcá lo que corresponda y contá qué comprobaste a mano. -->
+## How I tested it
 
-- [ ] Tests del servidor: `docker build --target build -t byox-mcp:build ./mcp` y `docker run --rm -v "$PWD/mcp/test:/app/test:ro" byox-mcp:build node --test "test/*.test.mjs"`
-- [ ] Scripts de la VPS: `docker run --rm -v "$PWD:/w" -w /w node:22-bookworm bash deploy/vps/test.sh`
-- [ ] Web: `docker build --target web -t byox-mcp:web ./mcp`
-- [ ] CLI: `cargo build --locked` en `cli/`
-- [ ] Probado a mano (qué):
+<!-- Tick what applies and say what you checked by hand. -->
 
-## Lista de control
+- [ ] Server tests: `docker build --target build -t byox-mcp:build ./mcp` and `docker run --rm -v "$PWD/mcp/test:/app/test:ro" byox-mcp:build node --test "test/*.test.mjs"`
+- [ ] Web app: `docker build --target web -t byox-mcp:web ./mcp`
+- [ ] CLI: `cargo build --locked` in `cli/`
+- [ ] Tried by hand (what):
 
-- [ ] Los commits siguen `<type>(<scope>): <emoji> <description>`, en inglés.
-- [ ] Actualicé la documentación (`mcp/web/src/docs/`, README) si cambia el comportamiento.
-- [ ] No incluye secretos, `.env` ni datos personales.
-- [ ] Si es un curso: el esqueleto falla y la solución pasa (`byox check`), cita sus fuentes y no copia material con copyright.
+## Checklist
+
+- [ ] Commits follow `<type>(<scope>): <emoji> <description>`, in English.
+- [ ] I updated the documentation (`mcp/web/src/docs/`, READMEs) if the behavior changes.
+- [ ] It contains no secrets, `.env` or personal data.
+- [ ] If it is a course: the skeleton fails and the solution passes (`byox check`), it cites its sources and does not copy copyrighted material.

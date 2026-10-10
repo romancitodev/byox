@@ -1,59 +1,60 @@
-name: Propuesta de curso
-description: Proponé un curso «construye tu propio X»
-title: "[Curso] build-your-own-"
+name: Course proposal
+description: Propose a "build your own X" course (propuesta de curso)
+title: "[Course] build-your-own-"
 labels: ["curso"]
 body:
   - type: markdown
     attributes:
       value: |
-        Antes de proponer, mirá la guía de formato (`byox guide`, o `mcp/assets/guide.md`) y los requisitos de CONTRIBUTING.md.
-        Los cursos no copian tests, enunciados ni texto de material con copyright: se basan en documentación oficial y especificaciones.
+        You can write in English or Spanish (también se acepta español).
+        Before proposing, read the format guide (`byox guide`, or `mcp/assets/guide.md`) and the requirements in CONTRIBUTING.md.
+        Courses do not copy tests, statements or text from copyrighted material: they are based on official documentation and specifications.
   - type: input
-    id: tema
+    id: topic
     attributes:
-      label: Qué se construye
-      placeholder: Por ejemplo, un servidor HTTP, un intérprete, un motor de búsqueda
+      label: What gets built
+      placeholder: For example, an HTTP server, an interpreter, a search engine
     validations:
       required: true
   - type: input
-    id: lenguaje
+    id: language
     attributes:
-      label: Lenguaje
-      description: La imagen de Docker donde correrían los tests, si ya lo pensaste.
+      label: Language
+      description: The Docker image where the tests would run, if you have thought about it.
     validations:
       required: true
   - type: textarea
-    id: publico
+    id: audience
     attributes:
-      label: Para quién es y qué se aprende
+      label: Who it is for and what is learned
     validations:
       required: true
   - type: textarea
-    id: etapas
+    id: stages
     attributes:
-      label: Etapas (borrador)
-      description: Una lista tentativa de tramos y etapas, y de qué dependen.
+      label: Stages (draft)
+      description: A tentative list of milestones and stages, and what they depend on.
   - type: textarea
-    id: fuentes
+    id: sources
     attributes:
-      label: Fuentes
-      description: Documentación oficial, especificaciones o implementaciones de referencia que vas a usar.
+      label: Sources
+      description: Official documentation, specifications or reference implementations you will use.
     validations:
       required: true
   - type: dropdown
-    id: quien
+    id: who
     attributes:
-      label: ¿Quién lo escribiría?
+      label: Who would write it?
       options:
-        - Yo
-        - Lo propongo, pero no lo voy a escribir
-        - Yo, con ayuda de un asistente de IA
+        - Me
+        - I am proposing it but will not write it
+        - Me, with the help of an AI assistant
     validations:
       required: true
   - type: checkboxes
-    id: licencia
+    id: license
     attributes:
-      label: Licencia
+      label: License
       options:
-        - label: Entiendo que los cursos de este repositorio se publican con CC BY-SA 4.0
+        - label: I understand that the courses in this repository are published under CC BY-SA 4.0
           required: true

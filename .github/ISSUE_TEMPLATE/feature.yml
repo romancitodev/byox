@@ -1,41 +1,44 @@
-name: Funcionalidad
-description: Proponé una mejora o una función nueva
-title: "[Propuesta] "
+name: Feature request
+description: Propose an improvement or a new feature
+title: "[Feature] "
 labels: ["enhancement"]
 body:
-  - type: textarea
-    id: problema
+  - type: markdown
     attributes:
-      label: Qué problema resuelve
-      description: Qué querés hacer y no podés (o te cuesta) hoy.
+      value: You can write in English or Spanish (también se acepta español).
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem it solves
+      description: What you want to do and cannot (or find hard to) do today.
     validations:
       required: true
   - type: textarea
-    id: propuesta
+    id: proposal
     attributes:
-      label: Cómo lo imaginás
+      label: How you imagine it
     validations:
       required: true
   - type: textarea
-    id: alternativas
+    id: alternatives
     attributes:
-      label: Alternativas que consideraste
+      label: Alternatives you considered
   - type: dropdown
-    id: componente
+    id: component
     attributes:
-      label: Componente
+      label: Component
       options:
-        - Servidor MCP / API
-        - App web, landing o documentación
+        - MCP server / API
+        - Web app, landing page or documentation
         - CLI (byox)
-        - Instalación o despliegue
-        - Cursos
-        - No sé
+        - Installation or deploy
+        - Courses
+        - I don't know
     validations:
       required: true
   - type: checkboxes
-    id: ayuda
+    id: help
     attributes:
-      label: Colaboración
+      label: Collaboration
       options:
-        - label: Podría implementarlo yo
+        - label: I could implement it myself

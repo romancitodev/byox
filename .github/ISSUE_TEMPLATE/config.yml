@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Vulnerabilidad de seguridad
+  - name: Security vulnerability
     url: https://github.com/romancitodev/byox/security/advisories/new
-    about: "No abras un issue público, usá el reporte privado de vulnerabilidades."
-  - name: Documentación
+    about: "Do not open a public issue, use private vulnerability reporting."
+  - name: Documentation
     url: https://github.com/romancitodev/byox/tree/main/mcp/web/src/docs
-    about: Guías de instalación, configuración, cuentas, producción y seguridad.
+    about: "Guides for installation, configuration, accounts, production and security (in Spanish)."
