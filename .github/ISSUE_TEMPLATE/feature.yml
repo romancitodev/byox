@@ -1,0 +1,41 @@
+name: Funcionalidad
+description: Proponé una mejora o una función nueva
+title: "[Propuesta] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué problema resuelve
+      description: Qué querés hacer y no podés (o te cuesta) hoy.
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Cómo lo imaginás
+    validations:
+      required: true
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: Alternativas que consideraste
+  - type: dropdown
+    id: componente
+    attributes:
+      label: Componente
+      options:
+        - Servidor MCP / API
+        - App web, landing o documentación
+        - CLI (byox)
+        - Instalación o despliegue
+        - Cursos
+        - No sé
+    validations:
+      required: true
+  - type: checkboxes
+    id: ayuda
+    attributes:
+      label: Colaboración
+      options:
+        - label: Podría implementarlo yo

@@ -1,0 +1,53 @@
+name: Error
+description: Algo no funciona como dice la documentación
+title: "[Error] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportarlo. Si es un problema de seguridad, **no lo publiques acá**: usá el reporte privado (ver SECURITY.md).
+        No pegues tokens, contraseñas ni el contenido de tu `.env`.
+  - type: dropdown
+    id: componente
+    attributes:
+      label: Componente
+      options:
+        - Servidor MCP / API
+        - App web, landing o documentación
+        - CLI (byox)
+        - Instalación (setup.sh, Docker Compose)
+        - Despliegue (deploy/vps, deploy/k8s-sim)
+        - Un curso (courses/ o examples/)
+        - No sé
+    validations:
+      required: true
+  - type: textarea
+    id: que-paso
+    attributes:
+      label: Qué pasó
+      description: Qué esperabas y qué ocurrió en cambio.
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Cómo reproducirlo
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: entorno
+    attributes:
+      label: Entorno
+      description: Sistema operativo, versión de Docker, commit de byox, navegador si aplica, y las variables relevantes del `.env` (`BYOX_SIGNUP`, `BYOX_AUTHORS`, etc.; sin secretos).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs o salida
+      description: Por ejemplo `docker compose logs mcp`. Revisá que no tengan secretos.
+      render: text

@@ -1,0 +1,59 @@
+name: Propuesta de curso
+description: Proponé un curso «construye tu propio X»
+title: "[Curso] build-your-own-"
+labels: ["curso"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Antes de proponer, mirá la guía de formato (`byox guide`, o `mcp/assets/guide.md`) y los requisitos de CONTRIBUTING.md.
+        Los cursos no copian tests, enunciados ni texto de material con copyright: se basan en documentación oficial y especificaciones.
+  - type: input
+    id: tema
+    attributes:
+      label: Qué se construye
+      placeholder: Por ejemplo, un servidor HTTP, un intérprete, un motor de búsqueda
+    validations:
+      required: true
+  - type: input
+    id: lenguaje
+    attributes:
+      label: Lenguaje
+      description: La imagen de Docker donde correrían los tests, si ya lo pensaste.
+    validations:
+      required: true
+  - type: textarea
+    id: publico
+    attributes:
+      label: Para quién es y qué se aprende
+    validations:
+      required: true
+  - type: textarea
+    id: etapas
+    attributes:
+      label: Etapas (borrador)
+      description: Una lista tentativa de tramos y etapas, y de qué dependen.
+  - type: textarea
+    id: fuentes
+    attributes:
+      label: Fuentes
+      description: Documentación oficial, especificaciones o implementaciones de referencia que vas a usar.
+    validations:
+      required: true
+  - type: dropdown
+    id: quien
+    attributes:
+      label: ¿Quién lo escribiría?
+      options:
+        - Yo
+        - Lo propongo, pero no lo voy a escribir
+        - Yo, con ayuda de un asistente de IA
+    validations:
+      required: true
+  - type: checkboxes
+    id: licencia
+    attributes:
+      label: Licencia
+      options:
+        - label: Entiendo que los cursos de este repositorio se publican con CC BY-SA 4.0
+          required: true
