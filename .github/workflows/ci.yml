@@ -1,0 +1,52 @@
+name: CI
+
+# Sólo compila y prueba: este workflow no publica nada.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mcp:
+    name: Servidor MCP (tsc y tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar con tsc
+        run: docker build --target build -t byox-mcp:build ./mcp
+      - name: Correr los tests
+        run: docker run --rm -v "$PWD/mcp/test:/app/test:ro" byox-mcp:build node --test "test/*.test.mjs"
+
+  deploy-scripts:
+    name: Scripts de la VPS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Correr deploy/vps/test.sh
+        run: docker run --rm -v "$PWD:/w" -w /w node:22-bookworm bash deploy/vps/test.sh
+
+  web:
+    name: Web (Astro)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar la landing, la documentación y la app
+        run: docker build --target web -t byox-mcp:web ./mcp
+
+  cli:
+    name: CLI (Rust)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compilar
+        working-directory: cli
+        run: |
+          rustup toolchain install stable --profile minimal
+          cargo build --locked
