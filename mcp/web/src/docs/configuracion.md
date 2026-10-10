@@ -39,6 +39,11 @@ Cuando byox no corre en `localhost`, estas tres variables le dicen cuáles son l
 |---|---|---|
 | `BYOX_TRUST_PROXY` | vacío | Con `1`, byox confía en las cabeceras `X-Forwarded-For`, `-Host` y `-Proto`. Se usa para el límite de intentos de inicio de sesión por IP y para detectar HTTPS. |
 | `BYOX_SECURE_COOKIES` | vacío | Con `1`, la cookie de sesión se marca siempre como `Secure`. |
+| `DISCORD_WEBHOOK_URL` | vacío | Webhook de un canal de Discord. Con él, byox avisa de arranques y paradas, cuentas y cursos nuevos, verificaciones, intentos sospechosos, errores y servicios caídos. Es un secreto: va solo en `.env`. |
+| `DISCORD_EVENTS` | `system,signup,course,verify,security,error` | Qué avisar, separado por comas. Suma `start` (alguien empezó un curso) o usa `all`. |
+| `DISCORD_PING_USER` | vacío | ID de tu usuario de Discord: se te menciona solo en los errores. |
+| `BYOX_INSTANCE_NAME` | el dominio de `BYOX_WEB_URL` | Qué instancia manda el aviso (pie del mensaje). |
+| `DISK_ALERT_PCT` | `85` | Porcentaje de disco usado desde el cual se avisa. |
 | `BYOX_APP_ROOT` | vacío | Con `1`, la app se sirve en la raíz del dominio (`app.ejemplo.com/cursos`) en vez de en `/app`, y no se muestra la landing. Para un dominio dedicado a la app. |
 
 <div class="callout warn" data-t="Solo con un proxy de confianza">

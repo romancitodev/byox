@@ -73,6 +73,11 @@ services:
       BYOX_SECRET: ${BYOX_SECRET:-}
       # Un dominio sólo para la app: la sirve en la raíz (app.ejemplo.com/cursos) en lugar de en /app.
       BYOX_APP_ROOT: ${BYOX_APP_ROOT:-}
+      # Avisos a un canal de Discord por webhook (vacío: apagados). Ver "Avisos a Discord" en la guía de producción.
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      DISCORD_EVENTS: ${DISCORD_EVENTS:-}
+      DISCORD_PING_USER: ${DISCORD_PING_USER:-}
+      BYOX_INSTANCE_NAME: ${BYOX_INSTANCE_NAME:-}
     volumes:
       # Para verify_course: corre esqueleto y solución en la imagen del curso.
       - /var/run/docker.sock:/var/run/docker.sock

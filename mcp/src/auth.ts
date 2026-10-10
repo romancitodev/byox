@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Forgejo } from "./forgejo.js";
+import { notify } from "./notify.js";
 import type { Db, Table } from "./store.js";
 
 /**
@@ -256,11 +257,16 @@ export class Auth {
         const b = await readJson(req);
         const user = String(b.username ?? "").trim().toLowerCase();
         const key = `${this.ip(req)}|${user}`;
-        if (!this.logins.take(key)) throw new HttpError(429, "Demasiados intentos. Espera unos minutos y vuelve a probar.");
+        if (!this.logins.take(key)) {
+          notify.send("security", "warn", "Demasiados intentos de inicio de sesión", { Usuario: user.slice(0, 40), IP: this.ip(req) }, { key: `login|${key}` });
+          throw new HttpError(429, "Demasiados intentos. Espera unos minutos y vuelve a probar.");
+        }
         const info = user && b.password ? await this.fj.basic(user, String(b.password)) : null;
         // Mismo mensaje exista o no el usuario, para no revelar cuentas.
         if (!info || info.login === this.cfg.bot || info.prohibit_login) throw new HttpError(401, "Usuario o contraseña incorrectos.");
         this.logins.reset(key);
+        // Una cuenta de administrador que entra es lo que más conviene ver si no fuiste vos.
+        if (info.is_admin) notify.send("security", "info", "Inicio de sesión de administrador", { Usuario: info.login, IP: this.ip(req) });
         await this.startSession(req, res, info.login);
         return send(await this.me({ user: info.login, admin: !!info.is_admin, via: "session" })), true;
       }
@@ -274,7 +280,10 @@ export class Auth {
 
       if (post && p === "/api/auth/signup") {
         if (this.cfg.signup === "closed") throw new HttpError(403, "El registro está cerrado en esta instancia.");
-        if (!this.signups.take(this.ip(req))) throw new HttpError(429, "Demasiados registros desde esta red. Prueba más tarde.");
+        if (!this.signups.take(this.ip(req))) {
+          notify.send("security", "warn", "Demasiados registros desde una misma red", { IP: this.ip(req) }, { key: `signup|${this.ip(req)}` });
+          throw new HttpError(429, "Demasiados registros desde esta red. Prueba más tarde.");
+        }
         const b = await readJson(req);
         const code = String(b.invite ?? "").trim();
         const invite = code ? await this.invites.get(sha(code)) : undefined;
@@ -296,6 +305,7 @@ export class Auth {
         if (invite) {
           await this.invites.del(sha(code));
         }
+        notify.send("signup", "info", "Nueva cuenta", { Usuario: username, Registro: invite ? "con invitación" : this.cfg.signup });
         await this.startSession(req, res, username);
         return send(await this.me({ user: username, admin: false, via: "session" }), 201), true;
       }

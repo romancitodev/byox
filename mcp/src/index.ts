@@ -9,6 +9,7 @@ import { Clients } from "./clients.js";
 import { isVerified, loadSource, VERIFY_CONTEXT, type Source } from "./course.js";
 import { Forgejo } from "./forgejo.js";
 import { courseStatus, startCourse, upgradeCourse } from "./instance.js";
+import { notify } from "./notify.js";
 import { Results } from "./results.js";
 import { openDb } from "./store.js";
 import { Usage } from "./usage.js";
@@ -16,6 +17,7 @@ import { refreshProfile } from "./profile.js";
 import { Verifier } from "./verify.js";
 import { registerTutor } from "./tutor.js";
 import { web } from "./web.js";
+import { defaultChecks, Watch } from "./watch.js";
 
 const env = (k: string, d?: string) => {
   const v = process.env[k] || d;
@@ -156,6 +158,7 @@ function buildServer(me: Principal): McpServer {
           auto_init: true,
           default_branch: "main",
         });
+        notify.send("course", "info", "Curso creado", { Curso: slug, Autor: me.user, Cómo: "asistente (MCP)" });
       }
       const sha = await fj.commit(
         cfg.org,
@@ -237,7 +240,7 @@ function buildServer(me: Principal): McpServer {
       const no = needAuthor();
       if (no) return no;
       if (preview) return text(JSON.stringify(await author.preview(code), null, 2));
-      const r = await author.importCourse(code, slug);
+      const r = await author.importCourse(code, slug, me.user);
       return text(`Importado: ${r.title} en ${r.sourceUrl}. Se está verificando; mirá el estado con validate_course o en la web.`);
     },
   );
@@ -261,6 +264,7 @@ function buildServer(me: Principal): McpServer {
       }
       const out = await startCourse(fj, mine, src, reset);
       usage.course(me.user, slug).catch((e) => console.error("uso:", e.message));
+      notify.send("start", "info", "Curso empezado", { Usuario: me.user, Curso: slug });
       scheduleProfile(me.user);
       return text(out);
     },
@@ -426,6 +430,33 @@ createServer(async (req, res) => {
       return;
     }
     console.error(e);
+    const path = (req.url ?? "").split("?")[0];
+    notify.send("error", "error", "Error interno del servidor", { Ruta: `${req.method} ${path}` }, { text: (e as Error)?.stack ?? String(e), key: `500|${req.method} ${path}|${(e as Error)?.message}` });
     if (!res.headersSent) res.writeHead(500).end("Error interno");
   }
-}).listen(3333, () => console.log("byox en :3333 (web en /, MCP en /mcp)"));
+}).listen(3333, () => {
+  console.log("byox en :3333 (web en /, MCP en /mcp)");
+  notify.send("system", "info", "byox arrancó", {
+    Estado: db.kind === "postgres" ? "Postgres" : "archivos",
+    Registro: signup,
+    Autores: authorsAll ? "todos" : "administradores",
+    Avisos: "activos",
+  });
+  new Watch(defaultChecks(fj, dataDir)).start();
+});
+
+// Un error que nadie atrapó deja el proceso en un estado dudoso: se avisa y se sale (Docker lo levanta de nuevo).
+const die = (what: string, e: unknown) => {
+  console.error(what, e);
+  notify.send("error", "error", what, {}, { text: (e as Error)?.stack ?? String(e), key: `proc|${what}` });
+  void notify.flush(4000).finally(() => process.exit(1));
+};
+process.on("uncaughtException", (e) => die("Excepción sin atrapar", e));
+process.on("unhandledRejection", (e) => die("Promesa rechazada sin atrapar", e));
+// docker stop manda SIGTERM: se avisa de la parada antes de salir.
+for (const sig of ["SIGTERM", "SIGINT"] as const) {
+  process.on(sig, () => {
+    notify.send("system", "warn", "byox se está deteniendo", { Señal: sig });
+    void notify.flush(3000).finally(() => process.exit(0));
+  });
+}

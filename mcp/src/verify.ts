@@ -7,6 +7,7 @@ import { loadSource, under, VERIFY_CONTEXT, type Source } from "./course.js";
 import { pickDocker } from "./docker.js";
 import type { Forgejo } from "./forgejo.js";
 import { renderRunSh } from "./instance.js";
+import { notify } from "./notify.js";
 import type { Db, Table } from "./store.js";
 
 const run = promisify(execFile);
@@ -196,6 +197,7 @@ export class Verifier {
       const out: Verification = { ...v, state: "invalid", finishedAt: new Date().toISOString() };
       await status("failure", `${src.errors.length} error(es) de formato`);
       await this.save(out);
+      notify.send("verify", "warn", "Curso con errores de formato", { Curso: slug }, { text: src.errors.join("\n"), key: `verify|${slug}` });
       return out;
     }
     await status("pending", "Corriendo esqueleto y solución");
@@ -204,6 +206,8 @@ export class Verifier {
       const { ok, report, stages } = await verifyCourse(this.fj, this.org, src);
       const out: Verification = { ...v, state: ok ? "success" : "failure", stages, report, finishedAt: new Date().toISOString() };
       await this.save(out);
+      if (ok) notify.send("verify", "info", "Curso verificado", { Curso: slug });
+      else notify.send("verify", "warn", "Un curso no pasó la verificación", { Curso: slug }, { text: report, key: `verify|${slug}` });
       return out;
     } catch (e) {
       await status("error", "La verificación se cortó");
@@ -214,6 +218,7 @@ export class Verifier {
         finishedAt: new Date().toISOString(),
       };
       await this.save(out);
+      notify.send("verify", "error", "Se cortó una verificación", { Curso: slug }, { text: (e as Error).message, key: `verify|${slug}` });
       return out;
     }
   }

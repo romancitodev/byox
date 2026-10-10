@@ -7,6 +7,7 @@ import { parse } from "yaml";
 import { z } from "zod";
 import { loadSource, sourceFromFiles, VERIFY_CONTEXT } from "./course.js";
 import type { Forgejo } from "./forgejo.js";
+import { notify } from "./notify.js";
 import type { Verifier } from "./verify.js";
 
 /**
@@ -143,7 +144,7 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
     }
   }
 
-  async function createRepo(slug: string, description: string) {
+  async function createRepo(slug: string, description: string, by: string | undefined, how: string) {
     await fj.req("POST", `/orgs/${org}/repos`, {
       name: slug,
       description,
@@ -151,6 +152,7 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
       auto_init: true,
       default_branch: "main",
     });
+    notify.send("course", "info", "Curso creado", { Curso: slug, Autor: by, Cómo: how });
   }
 
   /** El commit status de la verificación: lo deja verify_course aunque no haya registro local. */
@@ -171,7 +173,7 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
     const title = input.title?.trim() || slug;
     const files = await templateFiles(input.lang, { TITLE: title, SLUG: slug, AUTHOR: user });
     const description = parse(files["course.yaml"].toString("utf8"))?.description ?? "";
-    await createRepo(slug, description);
+    await createRepo(slug, description, user, `plantilla ${input.lang}`);
     const sha = await fj.commit(org, slug, files, `🎉 Nuevo curso desde la plantilla de ${tpl.label}`);
     verifier.ownCommit(sha);
     verifier.start(slug);
@@ -314,14 +316,14 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
   }
 
   /** Crea el repo fuente con los archivos del código y lo verifica acá, con tu Docker. */
-  async function importCourse(code: string, as?: string) {
+  async function importCourse(code: string, as?: string, user?: string) {
     const { bundle, files } = unpack(code);
     const slug = (as ?? bundle.slug).trim();
     checkSlug(slug);
     if (await exists(slug)) throw new HttpError(409, `Ya existe un curso ${slug}: hace falta importarlo con otro nombre.`);
     const src = sourceFromFiles(slug, files);
     if (src.errors.length) throw new HttpError(400, `El curso del código no es válido:\n${src.errors.join("\n")}`);
-    await createRepo(slug, src.course!.description);
+    await createRepo(slug, src.course!.description, user, "importado");
     const from = bundle.exportedBy ? ` de ${bundle.exportedBy}` : "";
     const sha = await fj.commit(org, slug, Object.fromEntries(files), `📦 Importar ${src.course!.title}${from}`);
     verifier.ownCommit(sha);
@@ -397,7 +399,7 @@ export function authoring(fj: Forgejo, cfg: AuthoringConfig, verifier: Verifier)
       if (post && p === "/api/import/preview") return json(res, await preview((await body(req)).code ?? "")), true;
       if (post && p === "/api/import") {
         const b = await body(req);
-        return json(res, await importCourse(b.code ?? "", b.slug || undefined), 201), true;
+        return json(res, await importCourse(b.code ?? "", b.slug || undefined, user), 201), true;
       }
     } catch (e) {
       if (e instanceof HttpError) return json(res, { error: e.message }, e.status), true;

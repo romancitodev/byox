@@ -7,6 +7,7 @@ import { HttpError, type Auth } from "./auth.js";
 import { isVerified, loadSource } from "./course.js";
 import type { Forgejo } from "./forgejo.js";
 import { startCourse, upgradeCourse } from "./instance.js";
+import { notify } from "./notify.js";
 import { computeStats, type ProfileConfig, type Stats } from "./profile.js";
 import type { Clients } from "./clients.js";
 import type { Usage } from "./usage.js";
@@ -441,6 +442,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
         }
         await startCourse(fj, w.cfg, src, false);
         usage.course(who.user, r[1]).catch((e) => console.error("uso:", e.message));
+        notify.send("start", "info", "Curso empezado", { Usuario: who.user, Curso: r[1] });
         onProgress(who.user);
         return json(res, { ok: true }), true;
       }
@@ -458,6 +460,7 @@ export function web(fj: Forgejo, base: ProfileConfig, results: Results, clients:
     } catch (e) {
       if (e instanceof HttpError) return json(res, { error: e.message }, e.status), true;
       console.error(e);
+      notify.send("error", "error", "Error en la API", { Ruta: `${req.method} ${p}` }, { text: (e as Error).stack ?? (e as Error).message, key: `api|${req.method} ${p}|${(e as Error).message}` });
       json(res, { error: (e as Error).message }, 500);
     }
     return true;
