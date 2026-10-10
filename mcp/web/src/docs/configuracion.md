@@ -89,7 +89,7 @@ Se leen al compilar el sitio y quedan dentro de la landing y la documentación. 
 
 | Variable | Qué hace |
 |---|---|
-| `PUBLIC_GITHUB_URL` | Muestra un enlace a GitHub en la landing y la documentación. |
+| `PUBLIC_GITHUB_URL` | Dirección del repositorio que enlazan la landing y la documentación. Por defecto, el repositorio oficial; cámbiala si publicas un fork. |
 | `PUBLIC_WAITLIST_URL` | Endpoint que recibe `POST` con `{ email, perfil }`. Si no está definido, el formulario de lista de espera no se muestra. |
 
 ### Publicar la landing y la documentación por separado

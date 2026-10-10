@@ -8,7 +8,7 @@ import Assistant from "./Assistant.astro";
 import Icon from "./Icon.astro";
 import LangSwitch from "./LangSwitch.astro";
 import { getSample, getHero } from "../../lib/sample.js";
-import { appHref, startHref, startLabelFor, navLabelFor } from "../../lib/links.js";
+import { appHref, githubUrl, startHref, startLabelFor, navLabelFor } from "../../lib/links.js";
 import { tr, locales } from "../../lib/landing-i18n.js";
 import "../../styles/landing.css";
 import "../../styles/demo.css";
@@ -26,7 +26,9 @@ const hero = getHero(lang);
 const startLabel = startLabelFor(lang);
 const navLabel = navLabelFor(lang);
 
-const github = import.meta.env.PUBLIC_GITHUB_URL;
+const github = githubUrl;
+// El CLI no tiene binarios publicados: se compila desde el repo (hace falta Rust).
+const cliInstall = `cargo install --git ${githubUrl} byox --locked`;
 const waitlist = import.meta.env.PUBLIC_WAITLIST_URL;
 const joint = sample.issues.find((i) => i.deps.length > 1);
 
@@ -418,7 +420,11 @@ const docsNote = t.nav.docsNote;
       <div class="v2-final-in">
         <h2 set:html={t.final.h2Html} />
         <p>{t.final.p}</p>
-        <code class="cmd v2-copy" data-copy="bash setup.sh" tabindex="0" role="button" aria-label={t.final.copyAria}>bash setup.sh <span>{t.final.copy}</span></code>
+        <div class="v2-cmds">
+          <code class="cmd v2-copy" data-copy="bash setup.sh" tabindex="0" role="button" aria-label={t.final.copyAria}>bash setup.sh <span>{t.final.copy}</span></code>
+          <code class="cmd v2-copy" data-copy={cliInstall} tabindex="0" role="button" aria-label={t.final.copyCliAria}>{cliInstall} <span>{t.final.copy}</span></code>
+        </div>
+        <p class="v2-cli-note">{t.final.cliNote}</p>
         <div class="cta">
           <a class="v2-cta" href={startHref}>{startLabel}</a>
           {github && <a class="l-btn ghost" href={github} rel="noopener">{t.final.viewCode}</a>}

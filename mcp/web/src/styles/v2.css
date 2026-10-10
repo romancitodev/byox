@@ -351,3 +351,9 @@ body { background: var(--paper); }
 .v2-chips li .ico { color: var(--ember); }
 .ico-tile { display: grid; place-items: center; width: 38px; height: 38px; margin-bottom: 14px; border-radius: 10px; border: 1px solid var(--line); background: color-mix(in srgb, var(--ember) 9%, transparent); color: var(--ember); }
 .v2-story-steps h3 .ico, .v2-aud h3 .ico, .v2-plans h3 .ico { margin-right: 9px; color: var(--ember); }
+
+/* Cierre: instalar la app y el CLI, uno debajo del otro */
+.v2-cmds { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 28px; }
+.v2-cmds .v2-copy { margin: 0; max-width: 100%; }
+.v2-cmds .v2-copy { overflow-wrap: anywhere; text-align: left; }
+.v2-cli-note { margin: 14px auto 0; max-width: 56ch; font-size: 13px; color: var(--ink-3); }

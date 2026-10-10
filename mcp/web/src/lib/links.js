@@ -7,6 +7,9 @@ export const appHref = cloud ? `${cloud.replace(/\/$/, "")}/app` : landingOnly ?
 export const startHref = cloud ? `${cloud.replace(/\/$/, "")}/app/cursos` : landingOnly ? "/docs" : "/app/cursos";
 export const hasApp = !landingOnly || !!cloud;
 
+// El repositorio: público, así que el enlace sale siempre. PUBLIC_GITHUB_URL permite apuntar a un fork.
+export const githubUrl = import.meta.env.PUBLIC_GITHUB_URL || "https://github.com/romancitodev/byox";
+
 // Etiquetas por idioma. Sin app propia (solo landing) el botón lleva a la guía de instalación.
 const installOnly = landingOnly && !cloud;
 const labels = {

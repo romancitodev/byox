@@ -107,7 +107,9 @@ docker run --rm --network byox -e BYOX_TOKEN=byox_… -v "$PWD:/w" -w /w node:22
 Adentro del repo de un curso detecta solo de qué curso se trata.
 
 ```bash
-cargo install --path cli
+# Todavía no hay binarios publicados: se compila en tu máquina (aprox. un minuto; hace falta Rust, https://rustup.rs)
+cargo install --git https://github.com/romancitodev/byox byox --locked
+# o, desde un clon del repo: cargo install --path cli
 byox login byox_…   # el token se crea en la app: Cuenta → Tokens (o variable BYOX_TOKEN)
 ```
 

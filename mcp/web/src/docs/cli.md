@@ -9,7 +9,13 @@ description: "Instala el CLI de byox, inicia sesión con un token y consulta la 
 
 ## Instalar
 
-Necesitas [Rust](https://rustup.rs). Desde el repositorio de byox:
+Necesitas [Rust](https://rustup.rs). No hay binarios publicados: el CLI se compila en tu máquina (aproximadamente un minuto). Directamente desde GitHub:
+
+```bash
+cargo install --git https://github.com/romancitodev/byox byox --locked
+```
+
+O, si ya clonaste el repositorio de byox:
 
 ```bash
 cargo install --path cli
