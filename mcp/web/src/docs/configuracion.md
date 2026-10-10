@@ -20,6 +20,7 @@ Las variables `PUBLIC_*` se incorporan al compilar la web, así que necesitan re
 |---|---|---|
 | `BYOX_SIGNUP` | `closed` | Quién puede crear cuenta. `closed`: solo el administrador. `invite`: con un código de invitación. `open`: cualquiera. |
 | `BYOX_AUTHORS` | `admin` | Quién puede escribir, verificar e importar cursos. `admin`: solo administradores. `all`: cualquier cuenta. |
+| `BYOX_MCP_WEEKLY_LIMIT` | `50` | Llamadas al MCP que puede hacer cada cuenta por semana. Los administradores no tienen tope. `0` lo desactiva para todos. |
 
 Detalles y consecuencias de cada valor en [Cuentas y permisos](/docs/cuentas).
 

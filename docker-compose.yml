@@ -67,6 +67,8 @@ services:
       BYOX_SIGNUP: ${BYOX_SIGNUP:-closed}
       # Quién puede escribir, verificar e importar cursos: admin (por defecto) o all.
       BYOX_AUTHORS: ${BYOX_AUTHORS:-admin}
+      # Llamadas al MCP por cuenta y por semana (los administradores no tienen tope). 0: sin tope para nadie.
+      BYOX_MCP_WEEKLY_LIMIT: ${BYOX_MCP_WEEKLY_LIMIT:-50}
       # Detrás de un proxy con HTTPS: BYOX_TRUST_PROXY=1 y BYOX_SECURE_COOKIES=1.
       BYOX_TRUST_PROXY: ${BYOX_TRUST_PROXY:-}
       BYOX_SECURE_COOKIES: ${BYOX_SECURE_COOKIES:-}

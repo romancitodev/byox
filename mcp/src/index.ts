@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { authoring, ensureWebhook } from "./authoring.js";
-import { Auth, HttpError, localize, type Principal, type SignupMode } from "./auth.js";
+import { Auth, HttpError, langOf, localize, type Principal, type SignupMode } from "./auth.js";
 import { Clients } from "./clients.js";
 import { isVerified, loadSource, VERIFY_CONTEXT, type Source } from "./course.js";
 import { Forgejo } from "./forgejo.js";
@@ -40,6 +40,9 @@ const dataDir = env("BYOX_DATA", "/data");
 const signup = env("BYOX_SIGNUP", "closed") as SignupMode;
 // Quién puede escribir y verificar cursos (corren código en Docker): sólo administradores, o todos.
 const authorsAll = env("BYOX_AUTHORS", "admin") === "all";
+// Tope semanal de llamadas al MCP por cuenta. Los administradores no tienen tope. 0 lo apaga para todos.
+const mcpWeeklyLimit = Math.max(0, Math.floor(Number(env("BYOX_MCP_WEEKLY_LIMIT", "50"))) || 0) || null;
+const limitFor = (p: Principal) => (p.admin ? null : mcpWeeklyLimit);
 const fj = new Forgejo(env("FORGEJO_URL"), env("BYOX_TOKEN"));
 // Con DATABASE_URL el estado vive en Postgres; si no, en archivos JSON dentro de BYOX_DATA.
 const db = await openDb(dataDir, process.env.DATABASE_URL || undefined);
@@ -58,6 +61,8 @@ const guide = readFileSync(new URL("../assets/guide.md", import.meta.url), "utf8
 const INSTRUCTIONS = `byox convierte "build your own X" en repos de Forgejo: cada paso es un issue con un test, los issues forman un grafo y Forgejo Actions cierra los que pasan. Vos sos el autor de los cursos.
 
 Antes de escribir un curso, llamá a get_format_guide.
+
+Cupo: cada cuenta tiene un número limitado de llamadas a herramientas por semana (los administradores no). Sé económico: escribí todos los archivos del curso en pocas llamadas a write_course_files (decenas de archivos por llamada), no repitas get_format_guide ni validate_course sin haber cambiado nada, y si una herramienta responde que se acabó el cupo, avisale a la persona cuándo se renueva en vez de reintentar.
 
 Calidad: nada inventado.
 - Basate en fuentes reales. Antes de escribir un contrato, un test o una pista sobre una API, una librería, un protocolo o un comportamiento del lenguaje, verificalo contra la documentación oficial, la especificación (RFC, spec del formato) o el código fuente de una implementación real. Usá las herramientas que tengas (docs MCP como context7, búsqueda web, leer repos reales) y fijate que la versión coincida con la de \`image\`.
@@ -296,6 +301,20 @@ function buildServer(me: Principal): McpServer {
   return server;
 }
 
+/** Responde a cada `tools/call` con un error de herramienta (lo ve el asistente y se lo cuenta a la persona). */
+function weeklyLimitReached(req: IncomingMessage, res: ServerResponse, who: Principal, calls: any[], limit: number, used: number) {
+  const reset = Usage.nextWeek();
+  const en = langOf(req) === "en";
+  const when = reset.toISOString().slice(0, 10);
+  const msg = en
+    ? `You have used your ${limit} MCP calls for this week (${used}/${limit}). The quota refills on Monday ${when} (UTC). The web app and the CLI are not affected.`
+    : `Usaste tus ${limit} llamadas al MCP de esta semana (${used}/${limit}). El cupo se renueva el lunes ${when} (UTC). La web y el CLI siguen funcionando.`;
+  const answers = calls.map((m) => ({ jsonrpc: "2.0", id: m.id, result: { content: [{ type: "text", text: msg }], isError: true } }));
+  notify.send("security", "info", "Llegó al tope semanal de llamadas MCP", { Usuario: who.user, Tope: String(limit) }, { key: `mcp-limit|${who.user}|${Usage.week()}` });
+  res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+  res.end(JSON.stringify(answers.length === 1 ? answers[0] : answers));
+}
+
 // El perfil se regenera cuando avanza un curso (el workflow avisa), al publicar
 // uno y cada 30 minutos para que la racha se corte sola a la medianoche.
 const profileTimers = new Map<string, NodeJS.Timeout>();
@@ -375,6 +394,27 @@ createServer(async (req, res) => {
         res.end(JSON.stringify({ error: "Falta el token. Crea uno en tu cuenta de byox y agrégalo como `Authorization: Bearer byox_…`." }));
         return;
       }
+      // El cuerpo se lee acá para saber qué cliente es (lo muestra la web) y cuántas herramientas pide; se le pasa ya parseado.
+      let body: unknown;
+      if (req.method === "POST") {
+        let raw = "";
+        for await (const chunk of req) raw += chunk;
+        try {
+          body = JSON.parse(raw);
+          clients.seen(who.user, body);
+        } catch {
+          body = undefined;
+        }
+        const calls = (Array.isArray(body) ? body : [body]).filter((m: any) => m?.method === "tools/call");
+        if (calls.length) {
+          const limit = limitFor(who);
+          const taken = await usage.take(who.user, calls.length, limit).catch((e) => {
+            console.error("uso:", e.message);
+            return { ok: true, used: 0 }; // si el contador falla, no se le corta el servicio a nadie
+          });
+          if (!taken.ok) return void weeklyLimitReached(req, res, who, calls, limit!, taken.used);
+        }
+      }
       // Sin sesiones: un servidor y un transporte por request.
       const server = buildServer(who);
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
@@ -383,20 +423,6 @@ createServer(async (req, res) => {
         server.close();
       });
       await server.connect(transport);
-      // El cuerpo se lee acá para saber qué cliente es (lo muestra la web) y se le pasa ya parseado.
-      let body: unknown;
-      if (req.method === "POST") {
-        let raw = "";
-        for await (const chunk of req) raw += chunk;
-        try {
-          body = JSON.parse(raw);
-          clients.seen(who.user, body);
-          const calls = (Array.isArray(body) ? body : [body]).filter((m) => m?.method === "tools/call").length;
-          if (calls) usage.call(who.user, calls).catch((e) => console.error("uso:", e.message));
-        } catch {
-          body = undefined;
-        }
-      }
       await transport.handleRequest(req, res, body);
       return;
     }
@@ -417,7 +443,7 @@ createServer(async (req, res) => {
       }
       if (path === "/api/usage" && req.method === "GET") {
         res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-        res.end(JSON.stringify(await usage.summary(who.user)));
+        res.end(JSON.stringify(await usage.summary(who.user, limitFor(who))));
         return;
       }
       if (await author.handle(req, res, who.user)) return;

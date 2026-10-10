@@ -68,6 +68,26 @@ for (const [name, open] of backends) {
       assert.deepEqual(s.activeCourses.sort(), ["redis", "shell"]);
       assert.equal((await u.summary(`${ns}-otra`)).mcpCalls, 0);
     });
+
+    it("Usage.take: corta en el tope, no gasta lo rechazado y null no tiene tope", async () => {
+      const u = new Usage(db);
+      const who = `${ns}-tope`;
+      assert.deepEqual(await u.take(who, 3, 5), { ok: true, used: 3 });
+      assert.deepEqual(await u.take(who, 3, 5), { ok: false, used: 3 }); // 6 > 5: rechazado, el contador queda en 3
+      assert.deepEqual(await u.take(who, 2, 5), { ok: true, used: 5 }); // justo en el tope entra
+      assert.equal((await u.take(who, 1, 5)).ok, false);
+      const s = await u.summary(who, 5);
+      assert.equal(s.mcpCalls, 5);
+      assert.equal(s.mcpRemaining, 0);
+      assert.equal(s.mcpLimit, 5);
+      // Sin tope (administradores): cuenta pero nunca corta.
+      assert.equal((await u.take(`${ns}-admin`, 500, null)).ok, true);
+      assert.equal((await u.summary(`${ns}-admin`)).mcpRemaining, null);
+      // Requests a la vez: nunca entran más que el tope.
+      const racers = await Promise.all(Array.from({ length: 20 }, () => u.take(`${ns}-carrera`, 1, 10)));
+      assert.equal(racers.filter((r) => r.ok).length, 10);
+      assert.equal((await u.summary(`${ns}-carrera`)).mcpCalls, 10);
+    });
   });
 }
 
@@ -94,4 +114,11 @@ describe("Usage.week (semana ISO)", () => {
     assert.equal(w("2026-10-09"), "2026-W41");
   });
   it("un mes", () => assert.equal(Usage.month(new Date("2026-10-09T12:00:00Z")), "2026-10"));
+  it("el cupo se renueva el lunes siguiente a las 00:00 UTC", () => {
+    const next = (iso) => Usage.nextWeek(new Date(iso)).toISOString();
+    assert.equal(next("2026-10-10T12:00:00Z"), "2026-10-12T00:00:00.000Z"); // sábado
+    assert.equal(next("2026-10-11T23:59:00Z"), "2026-10-12T00:00:00.000Z"); // domingo
+    assert.equal(next("2026-10-12T00:00:00Z"), "2026-10-19T00:00:00.000Z"); // lunes: la semana que arranca
+    assert.equal(next("2026-12-31T10:00:00Z"), "2027-01-04T00:00:00.000Z"); // cruza el año
+  });
 });

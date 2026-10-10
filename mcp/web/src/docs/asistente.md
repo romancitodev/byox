@@ -65,6 +65,8 @@ El asistente está instruido para explicar la causa y señalar el archivo y la l
 
 Estas herramientas solo funcionan con una cuenta que pueda crear cursos: un administrador, o cualquiera si la instancia usa `BYOX_AUTHORS=all`.
 
+Cada cuenta tiene un cupo de llamadas al MCP por semana (50 por defecto; los administradores no tienen tope). Escribir un curso con un asistente son varias llamadas, así que conviene pedirle que junte los archivos en pocas escrituras. Ver [Cuentas y permisos](/docs/cuentas).
+
 | Herramienta | Para qué |
 |---|---|
 | `get_format_guide` | La guía del formato de un curso. El asistente la lee antes de escribir. |

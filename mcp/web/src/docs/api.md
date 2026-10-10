@@ -76,6 +76,7 @@ Los errores devuelven un cuerpo `{ "error": "mensaje" }` y el código HTTP corre
 | `GET /api/profile` | Tu racha, tu récord, los días activos y tus cursos. |
 | `GET /api/activity` | Los últimos pushes y etapas cerradas. |
 | `GET /api/health` | Estado de Forgejo, del runner y de tu asistente conectado. |
+| `GET /api/usage` | Tus llamadas al MCP de la semana: `mcpCalls`, `mcpLimit` (`null` si no tienes tope), `mcpRemaining` y `mcpResetsAt`. Ver [Cuentas y permisos](/docs/cuentas). |
 
 ## Autoría
 

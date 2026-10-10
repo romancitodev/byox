@@ -102,7 +102,18 @@ Un token deja que un asistente o el CLI actúen como tú, con tus mismos permiso
 | Intentos de inicio de sesión | 8 cada 10 minutos por combinación de red y usuario |
 | Registros nuevos | 10 por hora por red |
 
-Pasado el límite, la respuesta es `429` hasta que se libera la ventana. Detrás de un proxy, necesitas `BYOX_TRUST_PROXY=1` para que el límite use la IP real de cada visitante; ver [Configuración](/docs/configuracion).
+Pasado el límite, la respuesta es `429` hasta que se libera la ventana.
+
+### Llamadas al MCP por semana
+
+Cada cuenta puede hacer hasta **50 llamadas a herramientas del MCP por semana** (`BYOX_MCP_WEEKLY_LIMIT`). Cuenta cada herramienta que invoca tu asistente, también las de lectura como `where_am_i`; listar las herramientas o conectarse no gasta cupo. Los administradores no tienen tope.
+
+- La semana va de lunes a domingo (UTC): el cupo se renueva el lunes a las 00:00 UTC.
+- Al llegar al tope, la herramienta responde con un error que el asistente te muestra, con el día en que se renueva. La web y el CLI siguen funcionando.
+- `GET /api/usage` devuelve lo gastado (`mcpCalls`), el tope (`mcpLimit`, `null` si no tienes), lo que queda (`mcpRemaining`) y cuándo se renueva (`mcpResetsAt`).
+- Con `BYOX_MCP_WEEKLY_LIMIT=0` no hay tope para nadie.
+
+Las llamadas que rechaza el tope no se descuentan. Si la instancia avisa a Discord, cada cuenta que llega al tope genera un aviso por semana. Detrás de un proxy, necesitas `BYOX_TRUST_PROXY=1` para que el límite use la IP real de cada visitante; ver [Configuración](/docs/configuracion).
 
 ## Restablecer una contraseña
 
